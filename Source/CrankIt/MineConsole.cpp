@@ -70,7 +70,7 @@ void AMineConsole::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	if (ShouldRotate)
 	{
-		AngularVelocityYaw = 800.f;
+		AngularVelocityYaw = 8000.f;
 	}
 
 	if (FMath::Abs(AngularVelocityYaw) > KINDA_SMALL_NUMBER)
@@ -151,7 +151,7 @@ void AMineConsole::CheckNeedCharge()
 	for(int32 i = 0; i < 3; i++)
 	{
 		Battery = Cast<ABattery>(Batteries[i]);
-		if(Battery && Battery->ChargeProgress < 3){
+		if(Battery && Battery->ChargeProgress < 3 && Battery->canCharge){
 			ChargeBattery();
 			break;
 		}

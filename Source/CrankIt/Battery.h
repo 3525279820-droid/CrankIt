@@ -37,6 +37,8 @@ public:
 	
 	int32 ChargeProgress = 0;
 
+	bool canCharge = true;
+
 
 	
 protected:

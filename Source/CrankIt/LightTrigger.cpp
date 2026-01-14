@@ -4,6 +4,8 @@
 #include "LightTrigger.h"
 
 #include "EMPLight.h"
+#include "PlayerCamera.h"
+
 
 
 void ULightTrigger::BeginPlay()
@@ -26,17 +28,61 @@ void ULightTrigger::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
 	UE_LOG(LogTemp, Display, TEXT("Button be pressed"))
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABattery::StaticClass(), AvailableBatteries);
-	for(int32 i = 0; i < 3; i++){
-		ABattery* Battery = Cast<ABattery>(AvailableBatteries[i]);
-		if(Battery)
+	
+	// UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABattery::StaticClass(), AvailableBatteries);
+	UBatterySlotTrigger* SlotComp = MineConsole->FindComponentByClass<UBatterySlotTrigger>();
+	if (!SlotComp)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("BatterySlotOwner has no UBoxComponent"));
+		return;
+	}
+	
+	if (!MineConsole || SlotTags.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Slot owner or tags not set for %s"), *GetName());
+		return;
+	}
+
+	// 收集宿主 Actor 上的所有盒体槽位组件
+	TArray<UBatterySlotTrigger*> AllSlotBoxes;
+	MineConsole->GetComponents(AllSlotBoxes);
+
+
+	// 只保留带有本开关指定标签的槽位
+	TArray<UBatterySlotTrigger*> MySlots;
+	for (UBatterySlotTrigger* Box : AllSlotBoxes)
+	{
+		for (const FName& Tag : SlotTags)
 		{
-			if(Battery->ChargeProgress == 3)
+			if (Box->ComponentHasTag(Tag))
 			{
-				if(EMPLight) EMPLight->LightIntensity = 25000.f;
+				MySlots.Add(Box);
+				break;
+			}
+		}
+	}
+	
+	// 查询MySlots中的电池
+	for (UBoxComponent* Slot : MySlots)
+	{
+		TArray<AActor*> Overlapping;
+		Slot->GetOverlappingActors(Overlapping, ABattery::StaticClass());
+
+		for (AActor* Actor : Overlapping)
+		{
+			ABattery* Battery = Cast<ABattery>(Actor);
+			if (!Battery) continue;
+
+			if (Battery->ChargeProgress == 3)
+			{
+				if (EMPLight) EMPLight->LightIntensity = 25000.f;
 				Battery->ChargeProgress = 0;
 				Battery->ResetChargeProgress();
-				break;
+				if(CurrentDirection == Monster->CurrentDirection)
+				{
+					Monster->Repel();
+				}
+				return; // 找到一个满足条件的电池后就返回
 			}
 		}
 	}

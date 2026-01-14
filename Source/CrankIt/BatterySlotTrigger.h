@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "Components/BoxComponent.h"
 #include "BatterySlotTrigger.generated.h"
-
 /**
  * 
  */
