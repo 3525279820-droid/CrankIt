@@ -121,10 +121,9 @@ void APlayerCamera::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	if(EIC) {
 		EIC->BindAction(TurnAction, ETriggerEvent::Started, this, &APlayerCamera::TurnInput);
 		EIC->BindAction(IntereactAction, ETriggerEvent::Started, this, &APlayerCamera::InteractInput);
-
+		EIC->BindAction(ExitScreen, ETriggerEvent::Started, this, &APlayerCamera::ExitScreenInput);
 	}
 }
-
 
 
 void APlayerCamera::InteractInput(const FInputActionValue& InputActionValue)
@@ -151,6 +150,18 @@ void APlayerCamera::TurnInput(const FInputActionValue& value)
 	
 	SpringArmComp->SetWorldRotation(TargetRotation);
 }
+
+void APlayerCamera::ExitScreenInput(const FInputActionValue& value)
+{
+	if (OriginalViewTarget)
+	{
+		APlayerController* PC = GetWorld()->GetFirstPlayerController();
+
+		PC->SetViewTargetWithBlend(OriginalViewTarget, .5f);
+		OriginalViewTarget = nullptr; // 清空，避免重复
+	}
+}
+
 
 void APlayerCamera::PickBattery()
 {

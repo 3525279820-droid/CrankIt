@@ -34,7 +34,8 @@ public:
 
 	UPROPERTY(VisibleAnywhere)
 	TArray<UPointLightComponent*> BatteryLights;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="UI")
 	int32 ChargeProgress = 0;
 
 	bool canCharge = true;

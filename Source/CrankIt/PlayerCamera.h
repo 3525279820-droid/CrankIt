@@ -10,6 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "MineConsole.h"
+#include "ComputerScreenActor.h"
 
 #include "PlayerCamera.generated.h"
 
@@ -31,6 +32,8 @@ public:
 
 	void TurnInput(const FInputActionValue& value);
 
+	void ExitScreenInput(const FInputActionValue& value);
+
 	void PickBattery();
 	
 	UPROPERTY(VisibleAnywhere)
@@ -51,6 +54,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* IntereactAction;
 
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* ExitScreen;
+	
+	UPROPERTY()
+	AActor* OriginalViewTarget;
+	
 	FRotator DeltaRotation = FRotator::ZeroRotator;
 
 	APlayerController* PlayerController;
