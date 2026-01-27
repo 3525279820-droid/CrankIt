@@ -27,7 +27,10 @@ void ATunnel::BeginPlay()
 	T1Location = Tunnel_1->GetComponentLocation();
 	T2Location = Tunnel_2->GetComponentLocation();
 
-	MoveDistance = FMath::Abs(T1Location.Z - T2Location.Z);
+	FBoxSphereBounds Bounds = Tunnel_2->Bounds;
+	FVector Extent = Bounds.BoxExtent; // 半尺寸（X/Y/Z方向）
+	
+	MoveDistance = Extent.Z * 2;
 
 	startLocation = T2Location;
 	startLocation.Z += MoveDistance;
@@ -39,6 +42,7 @@ void ATunnel::BeginPlay()
 void ATunnel::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
 	Move(DeltaTime, Tunnel_1);
 	Move(DeltaTime, Tunnel_2);
 
@@ -50,16 +54,20 @@ void ATunnel::Move(float DeltaTime, UStaticMeshComponent* MovePart)
 	float Speed = MoveDistance / MoveTime;
 
 	// 如果还没到目标，继续插值
-	if (!FMath::IsNearlyEqual(CurrentLocation.Z, TargetLocation.Z, KINDA_SMALL_NUMBER))
+	if (!FMath::IsNearlyEqual(CurrentLocation.Z, TargetLocation.Z, .5f))
 	{
 		float NewZ = FMath::FInterpConstantTo(CurrentLocation.Z, TargetLocation.Z, DeltaTime, Speed);
 		// float NewZ = CurrentLocation.Z + 10.f;
 		NewLocation = FVector(CurrentLocation.X, CurrentLocation.Y, NewZ);
 		MovePart->SetWorldLocation(NewLocation);
 		// MovePart->AddWorldOffset(FVector(0, 0, 10.f));
+		UE_LOG(LogTemp, Display, TEXT("X: %f, Y: %f, Z: %f"), T2Location.X, T2Location.Y, T2Location.Z)
+
 	}
 	else
 	{
+		UE_LOG(LogTemp, Display, TEXT("Arrived"))
+
 		// 到达后跳转到指定位置，并更新新的目标
 		if(MovePart==Tunnel_1)
 		{
@@ -67,9 +75,9 @@ void ATunnel::Move(float DeltaTime, UStaticMeshComponent* MovePart)
 			FBoxSphereBounds Bounds = Tunnel_2->Bounds;
 			FVector Origin = Bounds.Origin;   // 包围盒中心点
 			FVector Extent = Bounds.BoxExtent; // 半尺寸（X/Y/Z方向）
-
+		
 			// 底端位置（世界坐标）
-			FVector Bottom = Origin - FVector(0, 0, Extent.Z) * 2;
+			FVector Bottom = Origin - FVector(0, 0, Extent.Z) * 2.65;
 			Bottom.X = T2Location.X;
 			Bottom.Y = T2Location.Y;
 			
@@ -81,11 +89,11 @@ void ATunnel::Move(float DeltaTime, UStaticMeshComponent* MovePart)
 			FBoxSphereBounds Bounds = Tunnel_1->Bounds;
 			FVector Origin = Bounds.Origin;   // 包围盒中心点
 			FVector Extent = Bounds.BoxExtent; // 半尺寸（X/Y/Z方向）
-
+		
 			// 底端位置（世界坐标）
-			FVector Bottom = Origin - FVector(0, 0, Extent.Z) * 2;
-			Bottom.X = T2Location.X;
-			Bottom.Y = T2Location.Y;
+			FVector Bottom = Origin - FVector(0, 0, Extent.Z) * 2.65;
+			Bottom.X = T1Location.X;
+			Bottom.Y = T1Location.Y;
 			MovePart->SetWorldLocation(Bottom);
 		}
 	}
