@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/Actor.h"
+#include "TerminalWidget.h"
 #include "ComputerScreenActor.generated.h"
 
 UCLASS()

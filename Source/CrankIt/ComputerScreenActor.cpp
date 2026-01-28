@@ -30,6 +30,12 @@ AComputerScreenActor::AComputerScreenActor()
 void AComputerScreenActor::BeginPlay()
 {
 	Super::BeginPlay();
+	UTerminalWidget* Terminal = Cast<UTerminalWidget>(ScreenWidget->GetUserWidgetObject());
+	if (Terminal) {
+		Terminal->AddNewLine(TEXT(">>> Hello World"));
+		Terminal->AddNewLine(TEXT(">>> Compiling project..."));
+		Terminal->AddNewLine(TEXT(">>> Done!"));
+	}
 }
 
 void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)

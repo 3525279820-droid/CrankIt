@@ -132,7 +132,7 @@ void ASoundDetectorActor::DetectSoundInFront()
 
 	// 更新波形
 	UpdateWaveform(MaxSoundLevel);
-    UE_LOG(LogTemp, Warning, TEXT("MaxSoundLevel: %f"), MaxSoundLevel);
+    // UE_LOG(LogTemp, Warning, TEXT("MaxSoundLevel: %f"), MaxSoundLevel);
 }
 
 float ASoundDetectorActor::CalculateSoundIntensity(const FVector& SoundLocation, float SoundVolume)
