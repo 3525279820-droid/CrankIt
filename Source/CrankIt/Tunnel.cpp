@@ -77,7 +77,7 @@ void ATunnel::Move(float DeltaTime, UStaticMeshComponent* MovePart)
 			FVector Extent = Bounds.BoxExtent; // 半尺寸（X/Y/Z方向）
 		
 			// 底端位置（世界坐标）
-			FVector Bottom = Origin - FVector(0, 0, Extent.Z) * 2.65;
+			FVector Bottom = Origin - FVector(0, 0, Extent.Z) * DistanceMultiple;
 			Bottom.X = T2Location.X;
 			Bottom.Y = T2Location.Y;
 			
@@ -91,7 +91,7 @@ void ATunnel::Move(float DeltaTime, UStaticMeshComponent* MovePart)
 			FVector Extent = Bounds.BoxExtent; // 半尺寸（X/Y/Z方向）
 		
 			// 底端位置（世界坐标）
-			FVector Bottom = Origin - FVector(0, 0, Extent.Z) * 2.65;
+			FVector Bottom = Origin - FVector(0, 0, Extent.Z) * DistanceMultiple;
 			Bottom.X = T1Location.X;
 			Bottom.Y = T1Location.Y;
 			MovePart->SetWorldLocation(Bottom);

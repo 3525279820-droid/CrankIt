@@ -31,6 +31,9 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	float MoveTime = 0.4;
+
+	UPROPERTY(EditAnywhere, Category="间隔距离校准")
+	float DistanceMultiple = 2.65;
 	
 	FVector TargetLocation;
 	FVector startLocation;
