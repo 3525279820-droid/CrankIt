@@ -4,6 +4,7 @@
 #include "Blueprint/UserWidget.h"
 #include "TerminalWidget.generated.h"
 
+class UEditableTextBox;
 class UTextBlock;
 
 UCLASS()
@@ -20,6 +21,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Terminal")
 	void AddNewLine(const FString& Line);
 
+protected:
+	virtual void NativeConstruct() override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+	
 private:
 	FString CurrentText;
+	FString CurrentInputLine;
+	void UpdateDisplay();
+	void CommitInput();
 };
