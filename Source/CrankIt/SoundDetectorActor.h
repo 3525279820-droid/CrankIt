@@ -7,6 +7,11 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Components/AudioComponent.h"
+#include "Sound/SoundSubmix.h"
+#include "HAL/CriticalSection.h"
+#include "AudioMixer.h"
+
+
 #include "SoundDetectorActor.generated.h"
 
 class USoundWaveformWidget;
@@ -55,6 +60,17 @@ public:
 	// 波形数据点数量
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound Detection")
 	int32 WaveformPoints = 100;
+
+	UFUNCTION()
+	void OnSubmixEnvelope(const TArray<float>& Envelope);
+	
+	UPROPERTY(EditAnywhere, Category="Audio")
+	USoundSubmix* TargetSubmix;
+
+	FOnSubmixEnvelopeBP EnvelopeDelegate;
+	
+	FCriticalSection EnvelopeMutex;
+	TArray<float> LatestEnvelope; // 每通道最新包络
 
 private:
 	// 检测玩家前方的声音

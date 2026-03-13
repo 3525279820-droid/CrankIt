@@ -2,21 +2,24 @@
 
 #include "Components/EditableTextBox.h"
 #include "Components/TextBlock.h"
+#include "Kismet/GameplayStatics.h"
+#include "PlayerCamera.h"
 
 void UTerminalWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 	// CurrentText = TEXT("");
 	CurrentInputLine = TEXT("");
-	bIsFocusable = true;
-	SetKeyboardFocus();
+    SetIsFocusable(true);
+	// bIsFocusable = true;
+	// SetKeyboardFocus();
 	// FSlateApplication::Get().SetKeyboardFocus(TakeWidget());
 }
 
 FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
     const FKey Key = InKeyEvent.GetKey();
-
+ 
     if (Key == EKeys::Enter)
     {
         CommitInput();
@@ -30,9 +33,29 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
             UpdateDisplay();
         }
         return FReply::Handled();
-
+ 
     }
-    else
+    else if (Key == EKeys::Tab)
+    {
+        // 终端获得键盘焦点时，Tab 不会再传递到 Pawn 的输入映射
+        // 这里主动调用 PlayerCamera 的退出逻辑
+        if (UWorld* World = GetWorld())
+        {
+            if (APlayerController* PC = World->GetFirstPlayerController())
+            {
+                if (APawn* Pawn = PC->GetPawn())
+                {
+                    if (APlayerCamera* PlayerCamera = Cast<APlayerCamera>(Pawn))
+                    {
+                        PlayerCamera->ExitScreenInput(FInputActionValue());
+                    }
+                }
+            }
+        }
+
+        return FReply::Handled();
+    }
+	else
     {
         // 捕获字符输入
     	uint32 CharCode = InKeyEvent.GetCharacter();
@@ -42,10 +65,10 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
     		CurrentInputLine.AppendChar(Char);
     		UpdateDisplay();
     	}
-
+ 
     }
 
-    return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
 void UTerminalWidget::UpdateDisplay()
@@ -60,7 +83,7 @@ void UTerminalWidget::CommitInput()
 {
     CurrentText += CurrentInputLine + TEXT("\n");
     // 在这里解析命令
-    if (CurrentInputLine == TEXT("jump"))
+    if (CurrentInputLine == TEXT("JUMP"))
     {
         // 触发游戏逻辑
     }

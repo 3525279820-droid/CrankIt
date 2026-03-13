@@ -67,21 +67,50 @@ void ASoundDetectorActor::BeginPlay()
 			UE_LOG(LogTemp, Warning, TEXT("SoundWaveformWidget class not found. Please create it in Blueprint."));
 		}
 	}
+	if (TargetSubmix)
+	{
+		EnvelopeDelegate.BindUFunction(this, FName("OnSubmixEnvelope"));
+		// 用实例调用
+		TargetSubmix->AddEnvelopeFollowerDelegate(GetWorld(), EnvelopeDelegate);
+	}
+
 }
+
+void ASoundDetectorActor::OnSubmixEnvelope(const TArray<float>& Envelope)
+{
+	// 这个回调可能在音频线程被调用，尽量短且线程安全
+	FScopeLock Lock(&EnvelopeMutex);
+	LatestEnvelope = Envelope;
+}
+
 
 // Called every frame
 void ASoundDetectorActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// 按更新频率检测声音
 	LastUpdateTime += DeltaTime;
 	if (LastUpdateTime >= UpdateInterval)
 	{
-		DetectSoundInFront();
+
+		float SoundLevel = 0.0f;
+		{
+			FScopeLock Lock(&EnvelopeMutex);
+			if (LatestEnvelope.Num() > 0)
+			{
+				// 取通道最大或计算 RMS
+				float SumSq = 0.0f;
+				for (float v : LatestEnvelope) { SumSq += v * v; }
+				float RMS = FMath::Sqrt(SumSq / LatestEnvelope.Num());
+				SoundLevel = RMS; // 或者 FMath::Max(LatestEnvelope) 取峰值
+			}
+		}
+
+		UpdateWaveform(SoundLevel);
 		LastUpdateTime = 0.0f;
 	}
 }
+
 
 void ASoundDetectorActor::DetectSoundInFront()
 {
@@ -132,7 +161,6 @@ void ASoundDetectorActor::DetectSoundInFront()
 
 	// 更新波形
 	UpdateWaveform(MaxSoundLevel);
-    // UE_LOG(LogTemp, Warning, TEXT("MaxSoundLevel: %f"), MaxSoundLevel);
 }
 
 float ASoundDetectorActor::CalculateSoundIntensity(const FVector& SoundLocation, float SoundVolume)

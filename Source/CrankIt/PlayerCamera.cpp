@@ -157,9 +157,10 @@ void APlayerCamera::ExitScreenInput(const FInputActionValue& value)
 	{
 		APlayerController* PC = GetWorld()->GetFirstPlayerController();
 
-		PC->SetViewTargetWithBlend(OriginalViewTarget, .5f);
+		PC->SetViewTargetWithBlend(OriginalViewTarget, .5f, VTBlend_Cubic);
 		OriginalViewTarget = nullptr; // 清空，避免重复
 	}
+	UE_LOG(LogTemp, Warning, TEXT("PlayerController: Tab action triggered"));
 }
 
 

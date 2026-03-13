@@ -8,6 +8,8 @@
 #include "TerminalWidget.h"
 #include "ComputerScreenActor.generated.h"
 
+class UTerminalWidget;
+
 UCLASS()
 class CRANKIT_API AComputerScreenActor : public AActor
 {
@@ -27,10 +29,24 @@ public:
 	virtual void NotifyActorOnClicked(FKey ButtonPressed) override;
 
 	
+	
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* ScreenMesh;
 
 	UPROPERTY(VisibleAnywhere)
 	UWidgetComponent* ScreenWidget;
+
+	UPROPERTY(VisibleAnywhere)
+	ACameraActor* FixedCamera;
+
+	UPROPERTY(VisibleAnywhere)
+	APlayerController* PC;
+
+	// 终端小部件引用，用于控制键盘焦点
+	UPROPERTY()
+	UTerminalWidget* TerminalWidget;
+
+	// 记录上一帧是否处于电脑屏幕视角，用于检测状态切换
+	bool bWasInComputerView = false;
 
 };
