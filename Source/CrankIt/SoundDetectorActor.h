@@ -49,7 +49,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound Detection")
 	float DetectionRange = 1000.0f;
 
-	// 检测角度（度）
+	// 检测角度（度）++++++++++++++++++++++++++++++96666666
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound Detection")
 	float DetectionAngle = 60.0f;
 

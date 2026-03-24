@@ -36,9 +36,6 @@ void AComputerScreenActor::BeginPlay()
 	TerminalWidget = Cast<UTerminalWidget>(ScreenWidget->GetUserWidgetObject());
 	if (TerminalWidget)
 	{
-		TerminalWidget->AddNewLine(TEXT(">>> Hello World"));
-		TerminalWidget->AddNewLine(TEXT(">>> Compiling project..."));
-		TerminalWidget->AddNewLine(TEXT(">>> Done!"));
 		// 初始状态下禁止获得焦点，只有切到电脑视角时才允许
 		TerminalWidget->SetIsFocusable(false);
 
