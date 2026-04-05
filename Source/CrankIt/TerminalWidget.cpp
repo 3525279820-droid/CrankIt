@@ -1,9 +1,67 @@
 #include "TerminalWidget.h"
 
+#include <string>
+
 #include "Components/EditableTextBox.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
 #include "PlayerCamera.h"
+#include "Sound/SoundWave.h"
+
+void UTerminalWidget::GenerateTarget()
+{
+    
+    for(int32 i = 0 ;i< BinaryLength; ++i)
+    {
+        bool b = FMath::RandBool();
+        FString s = b ? "1" : "0";
+        NewTarget += s;
+    }
+    
+}
+
+void UTerminalWidget::ResetRound()
+{
+    GuessHistory.Empty();
+    CurrentGuessCount = 0;
+    GenerateTarget();
+}
+
+void UTerminalWidget::AddToGuessHistory(const FString& Guess)
+{
+    GuessHistory.Add(Guess);
+    CurrentGuessCount++;
+
+    int32 matchCount = 0;
+    for(int32 i = 0; i < BinaryLength; ++i)
+    {
+        if(Guess[i] == NewTarget[i])
+        {
+            matchCount++;
+        }
+    }
+    PendingLines.Add(FString::Printf(TEXT("Guess %d: %s  (matching bits: %d)"), CurrentGuessCount, *Guess, matchCount));
+    if (matchCount == BinaryLength)
+    {
+        PendingLines.Add(TEXT(">>> Correct! You found the number."));
+        PendingLines.Add(FString::Printf(TEXT("Target decimal: %s"), *NewTarget));
+        PendingLines.Add(TEXT("Starting new round..."));
+        StartDisplayingLines();
+    }
+    if (CurrentGuessCount >= MaxGuesses)
+    {
+        PendingLines.Add(TEXT(">>> Out of guesses. Target will refresh."));
+        PendingLines.Add(FString::Printf(TEXT("Target decimal was: %s"), *NewTarget));
+        PendingLines.Add(TEXT("Starting new round..."));
+        StartDisplayingLines();
+        // 延迟重置
+        if (GetWorld())
+        {
+            GetWorld()->GetTimerManager().SetTimer(DisplayTimerHandle, this, &UTerminalWidget::ResetRound, 2.5f, false);
+        }
+    }
+    StartDisplayingLines();
+}
 
 void UTerminalWidget::NativeConstruct()
 {
@@ -12,10 +70,40 @@ void UTerminalWidget::NativeConstruct()
 	CurrentInputLine = TEXT("");
     SetIsFocusable(true);
 
+    // 初始化猜数字小游戏
+    BinaryLength = 6;
+    MaxGuesses = 7;
+    ResetRound();
+
+    ////////////// 初始化终端交互逻辑 ///////////////////////////////////////////////////////
+    
+    // 初始化命令顺序
+    CommandSequence = { TEXT("BOORDLE")};
+    NextCommandIndex = 0;
     
     // 初始化文本命令
     CommandTextMap.Add(TEXT("JUMP"), { TEXT("Hello world!"), TEXT("compile..."), TEXT("Done!") });
     CommandTextMap.Add(TEXT("HELLO"), { TEXT("Hi!"), TEXT("Welcome.") });
+    CommandTextMap.Add(TEXT("REBOOT"), {
+        TEXT("cOS [Version 12.0.19248.417] "),
+        TEXT("(c) 1998 JTEC corporation. All rights reserved."),
+        TEXT(""),
+        TEXT("safe mode is active "),
+        TEXT("An unexpected crash has occurred! "),
+        TEXT(" to fix potential faults type: "),
+        TEXT("SCAN AND REPAIR")
+    });
+    CommandTextMap.Add(TEXT("SCAN AND REPAIR"), {
+        TEXT(""),
+        TEXT("Scanning Files "),
+        TEXT(" "),
+        TEXT("Checking BIOS ...OK"),
+        TEXT("Checking OS ...OK"),
+        TEXT("Checking Data ...OK"),
+        TEXT("SCAN AND REPAIR")
+    });
+    
+    
 
     // 初始化行为命令（绑定成员函数或 lambda）
     CommandActionMap.Add(TEXT("CLEAR"), [this]()
@@ -27,12 +115,63 @@ void UTerminalWidget::NativeConstruct()
         CurrentText.Empty();
     });
 
+    CommandActionMap.Add(TEXT("REBOOT"), [this]()
+    {
+        PendingLines.Append(CommandTextMap[CurrentInputLine]);
+        StartDisplayingLinesProcedure(3.f);        
+    });
+    
+    CommandActionMap.Add(TEXT("SCAN AND REPAIR"), [this]()
+    {
+        PendingLines.Append(CommandTextMap[CurrentInputLine]);
+        StartDisplayingLines();
+        UE_LOG(LogTemp, Display, TEXT("scanning"))
+        PendingLines.Append({
+            TEXT(""),
+            TEXT("Scanning finished"),
+            TEXT("Finished FAULTS FOUND (1): "),
+            TEXT("SystemTools.bin is malformed "),
+            TEXT("Suggestion use BOORDLE to identify binary fault ")
+        });
+        StartDisplayingLinesProcedure(1.f);        
+    });
+    CommandActionMap.Add(TEXT("BOORDLE"), [this]()
+    {
+        BinaryGuessActivated = true;
+        PendingLines.Append({
+            TEXT("Binary Guess Game Started"),
+        });
+        StartDisplayingLines();        
+    });
+
     // 行为命令模板
     CommandActionMap.Add(TEXT("DO_SOMETHING"), [this]()
     {
         // 调用游戏逻辑、触发事件、播放音效等
         UE_LOG(LogTemp, Log, TEXT("DO_SOMETHING executed"));
     });
+    //////////////////////////////////////////////////////////////////////////////////
+}
+
+
+void UTerminalWidget::StartDisplayingLinesProcedure(float delay)
+{
+    if (!GetWorld()) return;
+
+    if (GetWorld()->GetTimerManager().IsTimerActive(DisplayTimerHandle))
+    {
+        return;
+    }
+    UE_LOG(LogTemp, Display, TEXT("rebooting"))
+
+    GetWorld()->GetTimerManager().SetTimer(
+        DisplayTimerHandle,
+        this,
+        &UTerminalWidget::StartDisplayingLines,
+        0.1f,
+        false,
+        3.f
+    );
 }
 
 void UTerminalWidget::NativeDestruct()
@@ -90,8 +229,19 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
         if (CharCode != 0) // 0 表示没有有效字符
             {
             TCHAR Char = (TCHAR)CharCode;
-            CurrentInputLine.AppendChar(Char);
-            UpdateDisplay();
+            if(BinaryGuessActivated)
+            {
+                if ((Char == '0' || Char == '1') && CurrentInputLine.Len() < BinaryLength)
+                {
+                    CurrentInputLine.AppendChar(Char);
+                    CommitGuessNum();
+                    UpdateDisplay();
+                }
+            }
+            else{
+                CurrentInputLine.AppendChar(Char);
+                UpdateDisplay();
+            }
             }
  
     }
@@ -99,48 +249,96 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
     return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
+void UTerminalWidget::CommitGuessNum()
+{
+    if(CurrentInputLine.Len() != BinaryLength)
+    {
+        return;
+    }
+    CurrentText += CurrentInputLine + TEXT("\n");
+    AddToGuessHistory(CurrentInputLine);
+
+    CurrentInputLine.Empty();
+    UpdateDisplay();
+}
+
 void UTerminalWidget::CommitInput()
 {
-    // 先把输入行追加到 CurrentText（如果需要）
-    CurrentText += CurrentInputLine + TEXT("\n");
-
-    // 优先查行为命令表
-    if (CommandActionMap.Contains(CurrentInputLine))
+    // 防止越界
+    if(NextCommandIndex >= CommandSequence.Num())
     {
-        // 执行行为（同步）
-        CommandActionMap[CurrentInputLine]();
+        return;
     }
-    else if (CommandTextMap.Contains(CurrentInputLine))
+
+    // 目前应当输入的命令
+    const FString& Expected = CommandSequence[NextCommandIndex];
+    
+    // 先把输入行追加到 CurrentText
+    CurrentText += CurrentInputLine + TEXT("\n");
+    UE_LOG(LogTemp, Display, TEXT("now index: %d"), NextCommandIndex)
+
+    if (CurrentInputLine.Equals(Expected))
     {
-        // 文本命令：把对应行加入 PendingLines 并启动定时器显示
-        PendingLines.Append(CommandTextMap[CurrentInputLine]);
-        StartDisplayingLines(AddLineDelay);
+
+        // 优先查行为命令表
+        if (CommandActionMap.Contains(CurrentInputLine))
+        {
+            // 执行行为（同步）
+            CommandActionMap[CurrentInputLine]();
+            NextCommandIndex++;
+        }
+        // 否则显示文字
+        else if (CommandTextMap.Contains(CurrentInputLine))
+        {
+            // 文本命令：把对应行加入 PendingLines 并启动定时器显示
+            
+            PendingLines.Append(CommandTextMap[CurrentInputLine]);
+            StartDisplayingLines();
+            NextCommandIndex++;
+        }
+        else
+        {
+            PendingLines.Add(FString::Printf(TEXT("Unknown command: %s"), *CurrentInputLine));
+            StartDisplayingLines();
+        }
     }
     else
     {
-        // 未知命令：可显示提示或直接把输入当作普通文本
         PendingLines.Add(FString::Printf(TEXT("Unknown command: %s"), *CurrentInputLine));
-        StartDisplayingLines(AddLineDelay);
+        StartDisplayingLines();
     }
 
     CurrentInputLine.Empty();
     UpdateDisplay();
 }
 
+// 用于添加单行的文本
 void UTerminalWidget::AddNewLine(const FString& Line)
 {
     PendingLines.Add(Line);
-    StartDisplayingLines(AddLineDelay);
+    StartDisplayingLines();
 }
 
-void UTerminalWidget::StartDisplayingLines(float Interval)
+// 用于添加多行的文本
+void UTerminalWidget::AddNewLines(const TArray<FString>& Lines)
+{
+    PendingLines.Append(Lines);
+    StartDisplayingLines();
+}
+
+void UTerminalWidget::StartDisplayingLines()
 {
     if (!GetWorld()) return;
-
-    if (GetWorld()->GetTimerManager().IsTimerActive(DisplayTimerHandle))
+    
+    if (GetWorld())
     {
-        return;
+        GetWorld()->GetTimerManager().ClearTimer(DisplayTimerHandle);
     }
+    // if (GetWorld()->GetTimerManager().IsTimerActive(DisplayTimerHandle))
+    // {
+    //     return;
+    // }
+    UE_LOG(LogTemp, Display, TEXT("StartDisplayingLines"))
 
     GetWorld()->GetTimerManager().SetTimer(
         DisplayTimerHandle,

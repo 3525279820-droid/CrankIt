@@ -1,0 +1,116 @@
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/admin_password value type:28
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/lift operational value type:28
+  index0  
+  index1 lift operational 
+  index2 to ascend type 
+  index3 "ASCEND" 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/God is dead value type:28
+  index0  
+  index1 GODISDEAD 
+  index2 GODISDEAD 
+  index3 GODISDEAD 
+  index4 GODISDEAD 
+  index5 GODISDEAD 
+  index6 GODISDEAD 
+  index7 GODISDEAD 
+  index8 GODISDEAD 
+  index9 GODISDEAD 
+  index10 GODISDEAD 
+  index11 GODISDEAD 
+  index12 GODISDEAD 
+  index13 press any key to continue 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/Terminal Lock out state value type:28
+  index0  
+  index1 Warning this terminal has been temporarily restricted 
+  index2 to avoid excessive use, for YOUR SAFETY. 
+  index3  
+  index4 Terminal will be available in 60 seconds 
+  index5 Terminal will be available in 30 seconds 
+  index6  
+  index7 Terminal unlocked press any key to continue 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/Do not look at them prompt value type:28
+  index0  
+  index1 Error! 
+  index2 Low auxiliary detected. 
+  index3 A recharge is required to operate lift safely 
+  index4  
+  index5 press any key to continue 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/Unlocking door text value type:28
+  index0  
+  index1 Unlocking Door Please wait.. 
+  index2  
+  index3 Door Unlocked thank you for being 
+  index4 Patient 
+  index5  
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/Door calibration Prompt value type:28
+  index0  
+  index1 Error! 
+  index2 NORTH ENTRY door is not calibrated correctly 
+  index3  
+  index4 to calibrate door type 
+  index5 "CALIBRATE NORTH ENTRY DOOR" 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/Unlock Door Prompt value type:28
+  index0  
+  index1 Error! 
+  index2 EMERGENCY QUARANTINE IS IN EFFECT 
+  index3  
+  index4 to access lift controls quarantine must be lifted. 
+  index5 all doors will open upon lifting quarantine. 
+  index6 type the following to lift quarantine 
+  index7 "LIFT QUARANTINE" 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/Update required value type:28
+  index0  
+  index1 HUMAN BEING verified 
+  index2  
+  index3 Error! 
+  index4 An update is required to continue 
+  index5  
+  index6 type the following to start the update 
+  index7 "UPDATE SYSTEM" 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/Human test prompt2 value type:28
+  index0  
+  index1 insufficient further validation required 
+  index2 press any key to start additional verification 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/Human test prompt value type:28
+  index0  
+  index1 Fault Successfully Fixed 
+  index2  
+  index3 Error! 
+  index4 Unauthorised use of BOORDLE has been detected 
+  index5  
+  index6 please verify you are human by typing the following: 
+  index7 "I AM A HUMAN BEING" 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/scanning complete prompt value type:28
+  index0   
+  index1 Scanning finished 
+  index2 Finished FAULTS FOUND (1): 
+  index3 SystemTools.bin is malformed 
+  index4   
+  index5 Suggestion use BOORDLE to identify binary fault 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/scanning text value type:28
+  index0  
+  index1 Scanning Files 
+  index2  
+  index3 Checking BIOS ...OK 
+  index4 Checking OS ...OK 
+  index5 Checking Data ...OK 
+  index6  
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/safemode prompt value type:28
+  index0 cOS [Version 12.0.19248.417] 
+  index1 (c) 1998 JTEC corporation. All rights reserved 
+  index2  
+  index3 safe mode is active 
+  index4 An unexpected crash has occurred! 
+  index5 to fix potential faults type: 
+  index6 "SCAN AND REPAIR" 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/reboot_prompt value type:28
+  index0 UNCAUGHT EXCEPTION 
+  index1 <invalid mem address> 
+  index2 SYSTEM CORRUPTION has occurred 
+  index3  
+  index4 a REBOOT is required. 
+Found text_script on node:/root/Gameplay/SubViewport/Terminal/terminal container/pre_screen value type:28
+  index0 Lift Operational 
+  index1 descending please wait 
+  index2 you have reached your destination. 
+  index3 have a nice day. 

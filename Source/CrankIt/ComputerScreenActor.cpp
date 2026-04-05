@@ -46,6 +46,11 @@ void AComputerScreenActor::BeginPlay()
 		
 	// 切换摄像机
 	PC = GetWorld()->GetFirstPlayerController();
+
+	TerminalWidget->AddNewLine("Lift Operational ");
+	TerminalWidget->AddNewLine("descending please wait ");
+	TerminalWidget->AddNewLine("you have reached your destination. ");
+	TerminalWidget->AddNewLine("have a nice day. ");
 }
 
 void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)
