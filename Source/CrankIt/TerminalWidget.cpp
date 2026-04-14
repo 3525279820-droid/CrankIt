@@ -7,6 +7,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "PlayerCamera.h"
 #include "Sound/SoundWave.h"
+#include "UClassificationGameWidget.h"
 
 void UTerminalWidget::GenerateTarget()
 {
@@ -43,9 +44,16 @@ void UTerminalWidget::AddToGuessHistory(const FString& Guess)
     PendingLines.Add(FString::Printf(TEXT("Guess %d: %s  (matching bits: %d)"), CurrentGuessCount, *Guess, matchCount));
     if (matchCount == BinaryLength)
     {
-        PendingLines.Add(TEXT(">>> Correct! You found the number."));
-        PendingLines.Add(FString::Printf(TEXT("Target decimal: %s"), *NewTarget));
-        PendingLines.Add(TEXT("Starting new round..."));
+        BinaryGuessActivated = false;
+        PendingLines.Add(TEXT(""));
+        PendingLines.Add(TEXT("Fault Successfully Fixed."));
+        PendingLines.Add(TEXT(""));
+        PendingLines.Add(TEXT("Error!"));
+        PendingLines.Add(TEXT("Unauthorised use of BOORDLE has been detected"));
+        PendingLines.Add(TEXT("Unauthorised use of BOORDLE has been detected"));
+        PendingLines.Add(TEXT("please verify you are human by typing the following:"));
+        PendingLines.Add(TEXT("\"I AM A HUMAN BEING\""));
+
         StartDisplayingLines();
     }
     if (CurrentGuessCount >= MaxGuesses)
@@ -78,7 +86,7 @@ void UTerminalWidget::NativeConstruct()
     ////////////// 初始化终端交互逻辑 ///////////////////////////////////////////////////////
     
     // 初始化命令顺序
-    CommandSequence = { TEXT("BOORDLE")};
+    CommandSequence = { TEXT("CLASSIFY") };
     NextCommandIndex = 0;
     
     // 初始化文本命令
@@ -101,6 +109,11 @@ void UTerminalWidget::NativeConstruct()
         TEXT("Checking OS ...OK"),
         TEXT("Checking Data ...OK"),
         TEXT("SCAN AND REPAIR")
+    });
+    CommandTextMap.Add(TEXT("I AM A HUMAN BEING"), {
+        TEXT(""),
+        TEXT("insufficient further validation required."),
+        TEXT("press any key to start additional verification."),
     });
     
     
@@ -125,7 +138,6 @@ void UTerminalWidget::NativeConstruct()
     {
         PendingLines.Append(CommandTextMap[CurrentInputLine]);
         StartDisplayingLines();
-        UE_LOG(LogTemp, Display, TEXT("scanning"))
         PendingLines.Append({
             TEXT(""),
             TEXT("Scanning finished"),
@@ -144,12 +156,12 @@ void UTerminalWidget::NativeConstruct()
         StartDisplayingLines();        
     });
 
-    // 行为命令模板
-    CommandActionMap.Add(TEXT("DO_SOMETHING"), [this]()
+    // 启动分类小游戏的特殊指令
+    CommandActionMap.Add(TEXT("CLASSIFY"), [this]()
     {
-        // 调用游戏逻辑、触发事件、播放音效等
-        UE_LOG(LogTemp, Log, TEXT("DO_SOMETHING executed"));
+        EnterClassificationGame();
     });
+    
     //////////////////////////////////////////////////////////////////////////////////
 }
 
@@ -186,7 +198,30 @@ void UTerminalWidget::NativeDestruct()
 FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
     const FKey Key = InKeyEvent.GetKey();
- 
+
+    // 如果当前处于分类小游戏中，则把输入交给小游戏处理（这里只处理 A / D / Enter 三个键）
+    if (CurrentInputMode == ETerminalInputMode::ClassificationGame)
+    {
+        // 保留 Tab 作为兜底退出，避免输入被完全锁死
+        if (Key == EKeys::Tab)
+        {
+            ExitClassificationGame();
+            return FReply::Handled();
+        }
+
+        if (ClassificationGameWidget)
+        {
+            // 转发 A/D/Enter 给小游戏；其它键忽略
+            if (Key == EKeys::A || Key == EKeys::Left ||
+                Key == EKeys::D || Key == EKeys::Right ||
+                Key == EKeys::Enter)
+            {
+                ClassificationGameWidget->HandleKey(Key);
+            }
+        }
+        return FReply::Handled();
+    }
+
     if (Key == EKeys::Enter)
     {
         CommitInput();
@@ -366,6 +401,96 @@ void UTerminalWidget::DisplayNextLine()
     CurrentText += Line + TEXT("\n");
     UpdateDisplay();
 }
+
+// ================= 分类小游戏模式切换 =================
+
+void UTerminalWidget::EnterClassificationGame()
+{
+    if (!ClassificationGameWidget)
+    {
+        PendingLines.Add(TEXT("ClassificationGameWidget is not bound. Please check widget name in UMG."));
+        StartDisplayingLines();
+        bInClassificationGame = false;
+        CurrentInputMode = ETerminalInputMode::Terminal;
+        return;
+    }
+
+    // 切换到分类小游戏输入模式
+    bInClassificationGame = true;
+    CurrentInputMode = ETerminalInputMode::ClassificationGame;
+
+    // 清空当前终端输入行，避免残留
+    CurrentInputLine.Empty();
+    UpdateDisplay();
+
+    // 这里可以追加一行提示信息到终端（如果你希望在进入小游戏前在终端上写一行文字）
+    // PendingLines.Add(TEXT("Classification game started."));
+    // StartDisplayingLines();
+
+    // 实际项目中，你可以在这里显示分类小游戏的 Widget（比如通过蓝图绑定的子 Widget）
+    ClassificationGameWidget->SetVisibility(ESlateVisibility::Visible);
+
+        // 生成 3x8 的默认测试数据（先用文字 ID 替代图片）
+        TArray<FClassificationItem> DefaultItems;
+        DefaultItems.Reserve(24);
+        for (int32 i = 0; i < 24; ++i)
+        {
+            FClassificationItem Item;
+            Item.Id = FName(*FString::Printf(TEXT("Item_%02d"), i + 1));
+            if (i < 8)
+            {
+                Item.CorrectCategory = EClassificationCategory::Animal;
+            }
+            else if (i < 16)
+            {
+                Item.CorrectCategory = EClassificationCategory::Fruit;
+            }
+            else
+            {
+                Item.CorrectCategory = EClassificationCategory::Sport;
+            }
+            DefaultItems.Add(Item);
+        }
+    ClassificationGameWidget->StartGame(DefaultItems);
+
+    // 绑定结束事件（避免重复绑定）
+    ClassificationGameWidget->OnGameFinished.RemoveAll(this);
+    ClassificationGameWidget->OnGameFinished.AddDynamic(this, &UTerminalWidget::HandleClassificationGameFinished);
+}
+
+void UTerminalWidget::HandleClassificationGameFinished(bool bAllCorrect)
+{
+	if (bAllCorrect)
+	{
+		PendingLines.Add(TEXT("All classifications correct."));
+	}
+	else
+	{
+		PendingLines.Add(TEXT("Classification game ended."));
+	}
+	ExitClassificationGame();
+}
+
+void UTerminalWidget::ExitClassificationGame()
+{
+    // 小游戏结束后，由小游戏调用此函数，恢复终端输入模式
+    bInClassificationGame = false;
+    CurrentInputMode = ETerminalInputMode::Terminal;
+
+    // 恢复终端的输入行
+    CurrentInputLine.Empty();
+    UpdateDisplay();
+
+    // 可以在终端中提示小游戏结束
+    PendingLines.Add(TEXT("Classification game finished. Back to terminal."));
+    StartDisplayingLines();
+
+    if (ClassificationGameWidget)
+    {
+        ClassificationGameWidget->SetVisibility(ESlateVisibility::Collapsed);
+    }
+}
+
 
 void UTerminalWidget::UpdateDisplay()
 {

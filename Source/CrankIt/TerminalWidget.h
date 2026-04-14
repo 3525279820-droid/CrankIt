@@ -7,6 +7,14 @@
 
 class UEditableTextBox;
 class UTextBlock;
+class UClassificationGameWidget;
+
+UENUM(BlueprintType)
+enum class ETerminalInputMode : uint8
+{
+	Terminal UMETA(DisplayName = "Terminal"),
+	ClassificationGame UMETA(DisplayName = "ClassificationGame")
+};
 
 UCLASS()
 class CRANKIT_API UTerminalWidget : public UUserWidget
@@ -73,5 +81,31 @@ private:
 	// 当前需要匹配的索引（指向 CommandSequence 的下一个命令）
 	int32 NextCommandIndex = 0;
 
+	// ========== 分类小游戏相关 ==========
+public:
+	// 由终端命令触发，进入分类小游戏模式
+	UFUNCTION(BlueprintCallable, Category="Terminal|MiniGame")
+	void EnterClassificationGame();
+
+	// 小游戏结束时调用，恢复终端输入模式
+	UFUNCTION(BlueprintCallable, Category="Terminal|MiniGame")
+	void ExitClassificationGame();
+
+	// 动态委托回调签名（给 OnGameFinished 绑定用）
+	UFUNCTION()
+	void HandleClassificationGameFinished(bool bAllCorrect);
+
+	// 当前输入模式（终端 / 分类小游戏）
+	UPROPERTY(BlueprintReadOnly, Category="Terminal|MiniGame")
+	ETerminalInputMode CurrentInputMode = ETerminalInputMode::Terminal;
+
+private:
+	// 标记当前是否处于分类小游戏中，和 CurrentInputMode 保持一致，只在 C++ 内部使用
+	bool bInClassificationGame = false;
+	
+	// 分类小游戏 Widget（在终端 Widget 蓝图里放一个同名子控件即可自动绑定）
+	UPROPERTY(meta=(BindWidgetOptional))
+	UClassificationGameWidget* ClassificationGameWidget = nullptr;
+	// ========== 分类小游戏相关 End ==========
 
 };
