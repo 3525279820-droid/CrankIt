@@ -51,6 +51,11 @@ void AComputerScreenActor::BeginPlay()
 	TerminalWidget->AddNewLine("descending please wait ");
 	TerminalWidget->AddNewLine("you have reached your destination. ");
 	TerminalWidget->AddNewLine("have a nice day. ");
+
+	TerminalWidget->AddNewLine("NCAUGHT EXCEPTION");
+	TerminalWidget->AddNewLine("<invalid mem address>");
+	TerminalWidget->AddNewLine("SYSTEM CORRUPTION has occurred");
+	TerminalWidget->AddNewLine("a REBOOT is required.");
 }
 
 void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)

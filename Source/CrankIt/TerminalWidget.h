@@ -8,12 +8,14 @@
 class UEditableTextBox;
 class UTextBlock;
 class UClassificationGameWidget;
+class UCalibrationWidget;
 
 UENUM(BlueprintType)
 enum class ETerminalInputMode : uint8
 {
 	Terminal UMETA(DisplayName = "Terminal"),
-	ClassificationGame UMETA(DisplayName = "ClassificationGame")
+	ClassificationGame UMETA(DisplayName = "ClassificationGame"),
+	CalibrationGame UMETA(DisplayName = "CalibrationGame")
 };
 
 UCLASS()
@@ -68,6 +70,7 @@ private:
 	
 	void UpdateDisplay();
 	void CommitInput();
+	void ClearTerminal();
 	// 文本命令表：命令 -> 多行文本
 	TMap<FString, TArray<FString>> CommandTextMap;
 
@@ -95,6 +98,15 @@ public:
 	UFUNCTION()
 	void HandleClassificationGameFinished(bool bAllCorrect);
 
+	UFUNCTION(BlueprintCallable, Category="Terminal|MiniGame")
+	void EnterCalibrationGame();
+
+	UFUNCTION(BlueprintCallable, Category="Terminal|MiniGame")
+	void ExitCalibrationGame();
+
+	UFUNCTION()
+	void HandleCalibrationGameFinished(bool bWon);
+
 	// 当前输入模式（终端 / 分类小游戏）
 	UPROPERTY(BlueprintReadOnly, Category="Terminal|MiniGame")
 	ETerminalInputMode CurrentInputMode = ETerminalInputMode::Terminal;
@@ -106,6 +118,9 @@ private:
 	// 分类小游戏 Widget（在终端 Widget 蓝图里放一个同名子控件即可自动绑定）
 	UPROPERTY(meta=(BindWidgetOptional))
 	UClassificationGameWidget* ClassificationGameWidget = nullptr;
+
+	UPROPERTY(meta=(BindWidgetOptional))
+	UCalibrationWidget* CalibrationWidget = nullptr;
 	// ========== 分类小游戏相关 End ==========
 
 };

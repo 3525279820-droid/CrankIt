@@ -2,11 +2,13 @@
 
 #include <string>
 
+#include "Components/CanvasPanelSlot.h"
 #include "Components/EditableTextBox.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
 #include "PlayerCamera.h"
 #include "Sound/SoundWave.h"
+#include "CalibrationWidget.h"
 #include "UClassificationGameWidget.h"
 
 void UTerminalWidget::GenerateTarget()
@@ -71,6 +73,8 @@ void UTerminalWidget::AddToGuessHistory(const FString& Guess)
     StartDisplayingLines();
 }
 
+
+
 void UTerminalWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -86,7 +90,7 @@ void UTerminalWidget::NativeConstruct()
     ////////////// 初始化终端交互逻辑 ///////////////////////////////////////////////////////
     
     // 初始化命令顺序
-    CommandSequence = { TEXT("CLASSIFY") };
+    CommandSequence = { TEXT("CALIBRATE"), TEXT("CLASSIFY") };
     NextCommandIndex = 0;
     
     // 初始化文本命令
@@ -108,7 +112,6 @@ void UTerminalWidget::NativeConstruct()
         TEXT("Checking BIOS ...OK"),
         TEXT("Checking OS ...OK"),
         TEXT("Checking Data ...OK"),
-        TEXT("SCAN AND REPAIR")
     });
     CommandTextMap.Add(TEXT("I AM A HUMAN BEING"), {
         TEXT(""),
@@ -116,7 +119,17 @@ void UTerminalWidget::NativeConstruct()
         TEXT("press any key to start additional verification."),
     });
     
+    CommandTextMap.Add(TEXT("LIFT QUARANTINE"),
+    {
+        TEXT(""),
+        TEXT("ERROR!"),
+        TEXT("NORTH ENTRY door is not calibrated correctly"),
+        TEXT(""),
+        TEXT("to calibrate door type"),
+        TEXT("\"CALIBRATE NORTH ENTRY DOOR\"")
+        });
     
+
 
     // 初始化行为命令（绑定成员函数或 lambda）
     CommandActionMap.Add(TEXT("CLEAR"), [this]()
@@ -157,11 +170,134 @@ void UTerminalWidget::NativeConstruct()
     });
 
     // 启动分类小游戏的特殊指令
-    CommandActionMap.Add(TEXT("CLASSIFY"), [this]()
+    CommandActionMap.Add(TEXT(""), [this]()
     {
         EnterClassificationGame();
     });
-    
+
+    CommandActionMap.Add(TEXT("CALIBRATE"), [this]()
+    {
+        PendingLines.Append({
+            TEXT("CALIBRATE Game Started"),
+        });
+        StartDisplayingLines();
+        EnterCalibrationGame();
+    });
+
+    CommandActionMap.Add(TEXT("UPDATE SYSTEM"), [this]()
+    {
+        PendingLines.Append(
+            {
+                TEXT(""),
+                TEXT("Error!"),
+                TEXT("EMERGENCY QUARANTINE IS IN EFFECT"),
+                TEXT(""),
+                TEXT("to access lift controls quarantine must be lifted."),
+                TEXT("all doors will open upon lifting quarantine."),
+                TEXT("type the following to lift quarantine"),
+                TEXT("\"LIFT QUARANTINE\"")
+            });
+        StartDisplayingLinesProcedure(5.f);
+    });
+
+    CommandActionMap.Add(TEXT("LIFT QUARANTINE"), [this]()
+    {
+        PendingLines.Append(
+            {
+                TEXT(""),
+                TEXT("ERROR!"),
+                TEXT("EMERGENCY QUARANTINE IS IN EFFECT"),
+                TEXT(""),
+                TEXT("to access lift controls quarantine must be lifted."),
+                TEXT("all doors will open upon lifting quarantine."),
+                TEXT("type the following to lift quarantine"),
+                TEXT("\"LIFT QUARANTINE\""),
+            }
+        );
+        StartDisplayingLinesProcedure(5.f);
+    });
+
+    CommandActionMap.Add(TEXT("CALIBRATE NORTH ENTRY DOOR"), [this]()
+    {
+        PendingLines.Append(
+            {
+                TEXT(""),
+                TEXT("Unlocking Door Please wait.."),
+                TEXT(""),
+            });
+        StartDisplayingLinesProcedure(15.f);
+        PendingLines.Append(
+            {
+                TEXT("Door Unlocked thank you for being"),
+                TEXT("Patient"),
+            });
+        StartDisplayingLines();
+        PendingLines.Append(
+            {
+                TEXT(""),
+                TEXT("Error!"),
+                TEXT("Low auxiliary detected."),
+                TEXT("A recharge is required to operate lift safely"),
+                TEXT(""),
+                TEXT("press any key to continue"),
+            }
+        );
+        StartDisplayingLinesProcedure(5.f);
+        PendingLines.Append(
+            {
+                TEXT(""),
+                TEXT("Warning this terminal has been temporarily restricted"),
+                TEXT("to avoid excessive use, for YOUR SAFETY."),
+                TEXT(""),
+                TEXT("Terminal will be available in 60 seconds")
+            }
+        );
+        StartDisplayingLines();
+        PendingLines.Append(
+            {
+                TEXT("Terminal will be available in 30 seconds"),
+                TEXT(""),
+            }
+        );
+        StartDisplayingLinesProcedure(30.f);
+        PendingLines.Append(
+            {
+                TEXT("Terminal unlocked press any key to continue"),
+            }
+        );
+        StartDisplayingLinesProcedure(30.f);
+    });
+    CommandActionMap.Add(TEXT(""), [this]()
+    {
+        for(int32 i = 0; i < 14; ++i)
+        {
+            PendingLines.Add(TEXT("GOD IS DEAD"));
+            StartDisplayingLinesProcedure(1.f);
+        }
+    });
+    CommandActionMap.Add(TEXT(""), [this]()
+    {
+        PendingLines.Append(
+            {
+                TEXT(""),
+                TEXT("lift operational"),
+                TEXT("to ascend type"),
+                TEXT("\"ASCEND\""),
+            }
+        );
+        StartDisplayingLines();
+    }
+    );
+    CommandActionMap.Add(TEXT("ASCEND"), [this](){
+        PendingLines.Append(
+            {
+                TEXT("GAME OVER!"),
+            }
+        );
+        StartDisplayingLines();
+        }
+    );
+
     //////////////////////////////////////////////////////////////////////////////////
 }
 
@@ -174,7 +310,7 @@ void UTerminalWidget::StartDisplayingLinesProcedure(float delay)
     {
         return;
     }
-    UE_LOG(LogTemp, Display, TEXT("rebooting"))
+    UE_LOG(LogTemp, Display, TEXT("rebooting"));
 
     GetWorld()->GetTimerManager().SetTimer(
         DisplayTimerHandle,
@@ -218,6 +354,21 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
             {
                 ClassificationGameWidget->HandleKey(Key);
             }
+        }
+        return FReply::Handled();
+    }
+
+    if (CurrentInputMode == ETerminalInputMode::CalibrationGame)
+    {
+        if (Key == EKeys::Tab)
+        {
+            ExitCalibrationGame();
+            return FReply::Handled();
+        }
+
+        if (CalibrationWidget && Key == EKeys::Enter)
+        {
+            CalibrationWidget->HandleKey(Key);
         }
         return FReply::Handled();
     }
@@ -304,13 +455,15 @@ void UTerminalWidget::CommitInput()
     {
         return;
     }
+    // 清空终端
+    ClearTerminal();
 
     // 目前应当输入的命令
     const FString& Expected = CommandSequence[NextCommandIndex];
     
     // 先把输入行追加到 CurrentText
     CurrentText += CurrentInputLine + TEXT("\n");
-    UE_LOG(LogTemp, Display, TEXT("now index: %d"), NextCommandIndex)
+    UE_LOG(LogTemp, Display, TEXT("now index: %d"), NextCommandIndex);
 
     if (CurrentInputLine.Equals(Expected))
     {
@@ -369,11 +522,8 @@ void UTerminalWidget::StartDisplayingLines()
     {
         GetWorld()->GetTimerManager().ClearTimer(DisplayTimerHandle);
     }
-    // if (GetWorld()->GetTimerManager().IsTimerActive(DisplayTimerHandle))
-    // {
-    //     return;
-    // }
-    UE_LOG(LogTemp, Display, TEXT("StartDisplayingLines"))
+
+    UE_LOG(LogTemp, Display, TEXT("StartDisplayingLines"));
 
     GetWorld()->GetTimerManager().SetTimer(
         DisplayTimerHandle,
@@ -491,6 +641,73 @@ void UTerminalWidget::ExitClassificationGame()
     }
 }
 
+void UTerminalWidget::EnterCalibrationGame()
+{
+    if (!CalibrationWidget)
+    {
+        PendingLines.Add(TEXT("CalibrationWidget is not bound. Please check widget name in UMG."));
+        StartDisplayingLines();
+        CurrentInputMode = ETerminalInputMode::Terminal;
+        return;
+    }
+
+    bInClassificationGame = false;
+    CurrentInputMode = ETerminalInputMode::CalibrationGame;
+    CurrentInputLine.Empty();
+    UpdateDisplay();
+
+    CalibrationWidget->SetVisibility(ESlateVisibility::Visible);
+
+    // 终端里若 TextBlock 铺满 Canvas，后添加的子项默认 ZOrder 可能更低，导致小游戏被完全挡住。
+    if (UPanelSlot* PanelSlot = CalibrationWidget->Slot)
+    {
+        if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(PanelSlot))
+        {
+            CanvasSlot->SetZOrder(1000);
+        }
+    }
+
+    CalibrationWidget->InvalidateLayoutAndVolatility();
+    CalibrationWidget->OnGameFinished.RemoveAll(this);
+    CalibrationWidget->OnGameFinished.AddDynamic(this, &UTerminalWidget::HandleCalibrationGameFinished);
+    CalibrationWidget->StartGame();
+}
+
+void UTerminalWidget::HandleCalibrationGameFinished(bool bWon)
+{
+    if (bWon)
+    {
+        PendingLines.Add(TEXT(""));
+        PendingLines.Add(TEXT("HUMAN BEING verified"));
+        PendingLines.Add(TEXT(""));
+        PendingLines.Add(TEXT("Error!"));
+        PendingLines.Add(TEXT("An update is required to continue"));
+        PendingLines.Add(TEXT(""));
+        PendingLines.Add(TEXT("type the following to start the update"));
+        PendingLines.Add(TEXT("\"UPDATE SYSTEM\""));
+    }
+    else
+    {
+        PendingLines.Add(TEXT("Calibration game finished."));
+    }
+    ExitCalibrationGame();
+}
+
+void UTerminalWidget::ExitCalibrationGame()
+{
+    CurrentInputMode = ETerminalInputMode::Terminal;
+    CurrentInputLine.Empty();
+    UpdateDisplay();
+
+    PendingLines.Add(TEXT("Calibration game finished. Back to terminal."));
+    StartDisplayingLines();
+
+    if (CalibrationWidget)
+    {
+        CalibrationWidget->SetVisibility(ESlateVisibility::Collapsed);
+    }
+}
+
 
 void UTerminalWidget::UpdateDisplay()
 {
@@ -498,4 +715,8 @@ void UTerminalWidget::UpdateDisplay()
     {
         TerminalText->SetText(FText::FromString(CurrentText + CurrentInputLine));
     }
+}
+
+void UTerminalWidget::ClearTerminal()
+{
 }
