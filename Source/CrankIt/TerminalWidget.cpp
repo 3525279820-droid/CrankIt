@@ -9,7 +9,7 @@
 #include "PlayerCamera.h"
 #include "Sound/SoundWave.h"
 #include "CalibrationWidget.h"
-#include "UClassificationGameWidget.h"
+#include "ClassificationGameWidget.h"
 
 void UTerminalWidget::GenerateTarget()
 {

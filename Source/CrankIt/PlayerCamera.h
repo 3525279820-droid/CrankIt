@@ -11,6 +11,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "MineConsole.h"
 #include "ComputerScreenActor.h"
+#include "SubtitleWidget.h"
 
 #include "PlayerCamera.generated.h"
 
@@ -56,6 +57,10 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* ExitScreen;
+
+	/** 选你的 WBP_Subtitle（父类须为 USubtitleWidget）；留空则仍用纯 C++实例 + 自动生成的 TextBlock。 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Subtitle")
+	TSubclassOf<USubtitleWidget> SubtitleWidgetClass;
 	
 	UPROPERTY()
 	AActor* OriginalViewTarget;
@@ -75,6 +80,7 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	
 
+	UPROPERTY()
+	USubtitleWidget* SubtitlesWidget = nullptr;
 };

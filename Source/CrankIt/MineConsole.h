@@ -38,8 +38,8 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	USceneComponent* RootComp;
 	
-	UPROPERTY(VisibleAnywhere)
-	UStaticMeshComponent* ConsoleBase;
+	// UPROPERTY(VisibleAnywhere)
+	// UStaticMeshComponent* ConsoleBase;
 
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* ChargeHandle;

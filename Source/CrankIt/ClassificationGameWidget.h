@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "UClassificationGameWidget.generated.h"
+#include "ClassificationGameWidget.generated.h"
 
 class UTextBlock;
 

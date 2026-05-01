@@ -13,17 +13,15 @@ AMineConsole::AMineConsole()
 	RootComp = CreateDefaultSubobject<USceneComponent>(TEXT("Root Comp"));
 	SetRootComponent(RootComp);
 	
-	ConsoleBase = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ConsoleBase"));
-	ConsoleBase->SetupAttachment(RootComp);
 
 	ChargeHandle = CreateDefaultSubobject<UStaticMeshComponent>("ChargeHandle");
-	ChargeHandle->SetupAttachment(ConsoleBase);
+	ChargeHandle->SetupAttachment(RootComp);
 
 	for(int32 i = 0; i < 10; i++)
 	{
 		FName LightName = *FString::Printf(TEXT("ChargeLight_%d"), i);
 		UPointLightComponent* PointLight = CreateDefaultSubobject<UPointLightComponent>(LightName);
-		PointLight->SetupAttachment(ConsoleBase);
+		PointLight->SetupAttachment(RootComp);
 
 		PointLight->SetRelativeLocation(FVector(i * 30.f, 0.f, 0.f));
 		
@@ -38,7 +36,7 @@ AMineConsole::AMineConsole()
 	{
 		FName SlotName = *FString::Printf(TEXT("BatterySlot_%d"), i);
 		UBatterySlotTrigger* Slot = CreateDefaultSubobject<UBatterySlotTrigger>(SlotName);
-		Slot->SetupAttachment(ConsoleBase);
+		Slot->SetupAttachment(RootComp);
 		Slot->SetRelativeLocation(FVector(i * 30.f, 0.f, 0.f));
 	
 		BatterySlots.Add(Slot);

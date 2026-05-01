@@ -6,7 +6,10 @@
 #include <rapidjson/document.h>
 
 // #include "ToolBuilderUtil.h"
+#include "Blueprint/UserWidget.h"
+#include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "SubtitleSubsystem.h"
 
 // Sets default values
 APlayerCamera::APlayerCamera()
@@ -29,23 +32,71 @@ void APlayerCamera::BeginPlay()
 {
 	Super::BeginPlay();
 	PlayerController = Cast<APlayerController>(Controller);
-	if (PlayerController) {
-		ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
-		if (LocalPlayer) {
-			UEnhancedInputLocalPlayerSubsystem* Subsystem;
-			Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer);
-			if (Subsystem) {
-				Subsystem->AddMappingContext(DefaultMappingContext, 0);
+	if (PlayerController)
+	{
+		// 从主菜单等「仅 UI」输入模式进入本关卡后，若不恢复为 Game，Enhanced Input 与 Pawn 输入会一直被 UI 吃掉。
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		// Tick 里用 GetHitResultUnderCursor，需要可见光标与点击事件。
+		PlayerController->bShowMouseCursor = true;
+		PlayerController->bEnableClickEvents = true;
+
+		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer())
+		{
+			if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+					ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
+			{
+				if (DefaultMappingContext)
+				{
+					Subsystem->AddMappingContext(DefaultMappingContext, 0);
+				}
 			}
 		}
 	}
-	PlayerController->bEnableClickEvents = true;
 	PlayerControllerRef = Cast<APlayerController>(APawn::GetController());
 
 	TArray<AActor*> Found;
 	MineConsole = Cast<AMineConsole>(
 		UGameplayStatics::GetActorOfClass(GetWorld(), AMineConsole::StaticClass()));
 
+		
+	if (PlayerController)
+	{
+		if (SubtitleWidgetClass)
+		{
+			SubtitlesWidget = CreateWidget<USubtitleWidget>(PlayerController, SubtitleWidgetClass);
+		}
+		else
+		{
+			SubtitlesWidget = CreateWidget<USubtitleWidget>(PlayerController);
+		}
+		if (SubtitlesWidget)
+		{
+			SubtitlesWidget->AddToPlayerScreen(200);
+		}
+	}
+
+	
+	// 无语音文件时：用世界时间轴跑几条测试字幕（上面已 AddToPlayerScreen；纯 C++ Widget 会自动建底栏 TextBlock）。
+	if (UWorld* World = GetWorld())
+	{
+		if (USubtitleSubsystem* SubtitleSys = World->GetSubsystem<USubtitleSubsystem>())
+		{
+			TArray<FCrankItSubtitleCue> TestCues;
+			auto AddCue = [&TestCues](float Start, float End, const FString& Msg)
+			{
+				FCrankItSubtitleCue Cue;
+				Cue.StartTimeSeconds = Start;
+				Cue.EndTimeSeconds = End;
+				Cue.Text = FText::FromString(Msg);
+				TestCues.Add(Cue);
+			};
+			AddCue(0.f, 2.5f, FString(TEXT("【字幕测试】第一句（0~2.5 秒）")));
+			AddCue(2.5f, 5.f, FString(TEXT("【字幕测试】第二句（2.5~5 秒）")));
+			AddCue(5.f, 8.f, FString(TEXT("【字幕测试】第三句（5~8 秒）")));
+			AddCue(8.f, 11.f, FString(TEXT("【字幕测试】第四句（8~11 秒后本轨结束）")));
+			SubtitleSys->StartSubtitleTrackWithWorldTime(TestCues);
+		}
+	}
 }
 
 // Called every frame
