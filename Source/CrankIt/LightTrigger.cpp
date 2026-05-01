@@ -4,9 +4,6 @@
 #include "LightTrigger.h"
 
 #include "EMPLight.h"
-#include "PlayerCamera.h"
-
-
 
 void ULightTrigger::BeginPlay()
 {
@@ -27,8 +24,6 @@ void ULightTrigger::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 
 void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
-	UE_LOG(LogTemp, Display, TEXT("Button be pressed"))
-	
 	// UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABattery::StaticClass(), AvailableBatteries);
 	UBatterySlotTrigger* SlotComp = MineConsole->FindComponentByClass<UBatterySlotTrigger>();
 	if (!SlotComp)

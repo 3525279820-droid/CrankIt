@@ -72,12 +72,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Subtitle")
 	bool IsSubtitleTrackActive() const { return bTrackActive; }
 
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
 	// FTickableGameObject
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
-	virtual ETickableTickType GetTickableTickType() const override { return ETickableTickType::Always; }
+	virtual ETickableTickType GetTickableTickType() const override;
 	virtual bool IsTickableWhenPaused() const override { return false; }
 	virtual bool IsTickableInEditor() const override { return false; }
 

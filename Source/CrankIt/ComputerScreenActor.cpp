@@ -38,7 +38,6 @@ void AComputerScreenActor::BeginPlay()
 	{
 		// 初始状态下禁止获得焦点，只有切到电脑视角时才允许
 		TerminalWidget->SetIsFocusable(false);
-
 	}
 	FixedCamera = Cast<ACameraActor>(
 	UGameplayStatics::GetActorOfClass(GetWorld(), ACameraActor::StaticClass())
@@ -61,7 +60,6 @@ void AComputerScreenActor::BeginPlay()
 void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)
 {
 	Super::NotifyActorOnClicked(ButtonPressed);
-
 
 	if (PC && FixedCamera)
 	{
@@ -130,15 +128,16 @@ void AComputerScreenActor::Tick(float DeltaTime)
 		{
 			// 刚刚从电脑屏幕视角退出：清除键盘焦点并禁止终端继续接收输入
 			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+			// 把用户焦点完全交回游戏视口，避免 GameAndUI 残留导致第一次世界点击被 Slate 吞掉
+			FSlateApplication::Get().SetAllUserFocusToGameViewport(EFocusCause::SetDirectly);
 			// TerminalWidget->bIsFocusable = false;
 			TerminalWidget->SetIsFocusable(false);
 
 			if (PC)
 			{
-				PC->SetInputMode(FInputModeGameOnly());
-				PC->bShowMouseCursor = false;
+				// 与 APlayerCamera::BeginPlay 一致：探索阶段用 GameAndUI（无 Widget 焦点）+ 视口焦点，避免左键再次被吞。
+				APlayerCamera::ApplyExplorationInputMode(PC);
 			}
-
 		}
 	}
 

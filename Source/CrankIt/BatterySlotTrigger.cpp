@@ -26,8 +26,6 @@ void UBatterySlotTrigger::TickComponent(float DeltaTime, ELevelTick TickType, FA
 
 void UBatterySlotTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
-	UE_LOG(LogTemp, Display, TEXT("Button be pressed"))
-	
 	APlayerCamera* Player = Cast<APlayerCamera>(GetWorld()->GetFirstPlayerController()->GetPawn());
 	if (!Player) return;
 

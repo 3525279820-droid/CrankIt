@@ -10,6 +10,11 @@
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "SubtitleSubsystem.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
+#include "Misc/DateTime.h"
+#include "HAL/FileManager.h"
+#include "Framework/Application/SlateApplication.h"
 
 // Sets default values
 APlayerCamera::APlayerCamera()
@@ -27,6 +32,24 @@ APlayerCamera::APlayerCamera()
 
 }
 
+void APlayerCamera::ApplyExplorationInputMode(APlayerController* PC)
+{
+	if (!PC)
+	{
+		return;
+	}
+	// GameOnly + 可见鼠标时，左键常在 Slate 视口与「世界点击 / EI」之间被反复吞掉（全程如此，非仅开局）。
+	// GameAndUI 且不指定 WidgetToFocus：仍把输入交给游戏，同时让鼠标按下能稳定参与 Hit/Click。
+	FInputModeGameAndUI Mode;
+	Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	Mode.SetHideCursorDuringCapture(false);
+	PC->SetInputMode(Mode);
+	PC->bShowMouseCursor = true;
+	PC->bEnableClickEvents = true;
+	PC->bEnableMouseOverEvents = true;
+	FSlateApplication::Get().SetAllUserFocusToGameViewport(EFocusCause::SetDirectly);
+}
+
 // Called when the game starts or when spawned
 void APlayerCamera::BeginPlay()
 {
@@ -34,11 +57,7 @@ void APlayerCamera::BeginPlay()
 	PlayerController = Cast<APlayerController>(Controller);
 	if (PlayerController)
 	{
-		// 从主菜单等「仅 UI」输入模式进入本关卡后，若不恢复为 Game，Enhanced Input 与 Pawn 输入会一直被 UI 吃掉。
-		PlayerController->SetInputMode(FInputModeGameOnly());
-		// Tick 里用 GetHitResultUnderCursor，需要可见光标与点击事件。
-		PlayerController->bShowMouseCursor = true;
-		PlayerController->bEnableClickEvents = true;
+		ApplyExplorationInputMode(PlayerController);
 
 		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer())
 		{
@@ -122,11 +141,11 @@ void APlayerCamera::Tick(float DeltaTime)
 			-1.f
 		);
 
-	if(HoldBattery)
-	{
-		HoldBattery->RootComp->SetWorldLocation(BatteryHoldPoint->GetComponentLocation());
-		HoldBattery->RootComp->SetWorldRotation(BatteryHoldPoint->GetComponentRotation());
-	}
+		if (HoldBattery)
+		{
+			HoldBattery->RootComp->SetWorldLocation(BatteryHoldPoint->GetComponentLocation());
+			HoldBattery->RootComp->SetWorldRotation(BatteryHoldPoint->GetComponentRotation());
+		}
 	}
 
 	//检查鼠标指向对象
@@ -141,7 +160,7 @@ void APlayerCamera::Tick(float DeltaTime)
 			if(MineConsole)
 			{
 				MineConsole->ShouldRotate = true;
-			}
+			}	
 		}
 
 		else if(HitComp->ComponentHasTag("Battery"))
@@ -185,14 +204,11 @@ void APlayerCamera::InteractInput(const FInputActionValue& InputActionValue)
 		TargetBattery->RootComp->SetWorldRotation(BatteryHoldPoint->GetComponentRotation());
 		HoldBattery = TargetBattery;
 		TargetBattery = nullptr;
-		
-		UE_LOG(LogTemp, Display, TEXT("Battery picked!"))
 	}
 }
 
 void APlayerCamera::TurnInput(const FInputActionValue& value)
 {
-	UE_LOG(LogTemp, Display, TEXT("Should turn"))
 	float InputValue = value.Get<float>();
 	FRotator TargetRotation = FRotator::ZeroRotator;
 
@@ -211,12 +227,9 @@ void APlayerCamera::ExitScreenInput(const FInputActionValue& value)
 		PC->SetViewTargetWithBlend(OriginalViewTarget, .5f, VTBlend_Cubic);
 		OriginalViewTarget = nullptr; // 清空，避免重复
 	}
-	UE_LOG(LogTemp, Warning, TEXT("PlayerController: Tab action triggered"));
 }
 
 
 void APlayerCamera::PickBattery()
 {
-	UE_LOG(LogTemp, Display, TEXT("Battery clicked!"))
 }
-

@@ -12,7 +12,6 @@ void ULightTriggerComp::BeginPlay()
 ULightTriggerComp::ULightTriggerComp()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-
 }
 void ULightTriggerComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
@@ -22,7 +21,6 @@ void ULightTriggerComp::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 
 void ULightTriggerComp::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
-	UE_LOG(LogTemp, Display, TEXT("Button be pressed."))
 }
 
 

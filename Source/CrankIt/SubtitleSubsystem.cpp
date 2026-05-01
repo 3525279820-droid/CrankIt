@@ -13,10 +13,24 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogSubtitleSubsystem, Log, All);
 
+void USubtitleSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+}
+
 void USubtitleSubsystem::Deinitialize()
 {
 	StopSubtitles();
 	Super::Deinitialize();
+}
+
+ETickableTickType USubtitleSubsystem::GetTickableTickType() const
+{
+	if (IsTemplate())
+	{
+		return ETickableTickType::Never;
+	}
+	return ETickableTickType::Always;
 }
 
 void USubtitleSubsystem::OnAudioPlaybackPercentNative(const UAudioComponent* InAudioComponent, const USoundWave* PlayingSoundWave, float PlaybackPercent)

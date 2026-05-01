@@ -36,6 +36,8 @@ public:
 	void ExitScreenInput(const FInputActionValue& value);
 
 	void PickBattery();
+
+	static void ApplyExplorationInputMode(APlayerController* PC);
 	
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArmComp;

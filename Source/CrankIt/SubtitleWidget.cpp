@@ -16,6 +16,7 @@ void USubtitleWidget::NativeConstruct()
 	if (!SubtitleText && WidgetTree)
 	{
 		UOverlay* RootOverlay = WidgetTree->ConstructWidget<UOverlay>(UOverlay::StaticClass(), TEXT("SubtitleRoot"));
+		RootOverlay->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		SubtitleText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("SubtitleText"));
 		SubtitleText->SetFont(FCoreStyle::GetDefaultFontStyle("Regular", 22));
 		SubtitleText->SetColorAndOpacity(FLinearColor::White);
@@ -31,6 +32,14 @@ void USubtitleWidget::NativeConstruct()
 		}
 		WidgetTree->RootWidget = RootOverlay;
 		RebuildWidget();
+	}
+
+	// RebuildWidget / 蓝图设计器根节点可能仍为 Visible，会挡第一次世界点击；在整棵树就绪后再统一关掉命中与焦点。
+	SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+	SetIsFocusable(false);
+	if (UWidget* RW = GetRootWidget())
+	{
+		RW->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 	}
 
 	// World 子系统随关卡存在；Widget 进树后再绑定，保证 GetWorld() 有效。
