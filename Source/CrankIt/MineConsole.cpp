@@ -68,7 +68,7 @@ void AMineConsole::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	if (ShouldRotate)
 	{
-		AngularVelocityYaw = 8000.f;
+		AngularVelocityYaw = SpinVelocity;
 	}
 
 	if (FMath::Abs(AngularVelocityYaw) > KINDA_SMALL_NUMBER)

@@ -1,107 +1,115 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "SoundWaveformWidget.h"
-#include "Rendering/DrawElements.h"
-#include "Styling/SlateBrush.h"
-#include "Brushes/SlateColorBrush.h"
-#include "Brushes/SlateNoResource.h"
+#include "Components/Border.h"
+#include "Components/Image.h"
+#include "Components/PanelWidget.h"
+#include "Components/ProgressBar.h"
+#include "Components/TextBlock.h"
 
-void USoundWaveformWidget::UpdateWaveform(const TArray<float>& WaveformData)
+void USoundWaveformWidget::ApplySegmentStyle(UWidget* SegmentWidget, bool bLit, const FLinearColor& Filled, const FLinearColor& Empty)
 {
-	CurrentWaveformData = WaveformData;
-	// 触发重绘
-	if (IsValid(this))
+	if (!IsValid(SegmentWidget))
 	{
-		Invalidate(EInvalidateWidget::Paint);
+		return;
+	}
+
+	const FLinearColor Color = bLit ? Filled : Empty;
+
+	if (UImage* const Img = Cast<UImage>(SegmentWidget))
+	{
+		Img->SetColorAndOpacity(Color);
+		return;
+	}
+	if (UBorder* const Br = Cast<UBorder>(SegmentWidget))
+	{
+		Br->SetBrushColor(Color);
+		return;
+	}
+	if (UProgressBar* const Pb = Cast<UProgressBar>(SegmentWidget))
+	{
+		Pb->SetFillColorAndOpacity(Color);
+		return;
+	}
+	if (UTextBlock* const Txt = Cast<UTextBlock>(SegmentWidget))
+	{
+		Txt->SetColorAndOpacity(Color);
+		return;
 	}
 }
 
-int32 USoundWaveformWidget::NativePaint(
-	const FPaintArgs& Args,
-	const FGeometry& AllottedGeometry,
-	const FSlateRect& MyCullingRect,
-	FSlateWindowElementList& OutDrawElements,
-	int32 LayerId,
-	const FWidgetStyle& InWidgetStyle,
-	bool bParentEnabled) const
+void USoundWaveformWidget::NativePreConstruct()
 {
-	// 调用父类绘制
-	int32 MaxLayerId = Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+	Super::NativePreConstruct();
+	RefreshSegmentCache();
+	RefreshMeterVisual();
+}
 
-	// 绘制背景 - 使用颜色Brush
-	FSlateColorBrush BackgroundBrush(BackgroundColor);
-	FSlateDrawElement::MakeBox(
-		OutDrawElements,
-		MaxLayerId++,
-		AllottedGeometry.ToPaintGeometry(),
-		&BackgroundBrush,
-		ESlateDrawEffect::None,
-		BackgroundColor
-	);
-
-	// 如果没有数据，直接返回
-	if (CurrentWaveformData.Num() < 2)
+void USoundWaveformWidget::NativeOnInitialized()
+{
+	Super::NativeOnInitialized();
+	RefreshSegmentCache();
+	if (!IsValid(SoundMeterContainer))
 	{
-		return MaxLayerId;
+		UE_LOG(LogTemp, Warning, TEXT("SoundWaveformWidget: 未绑定名为 SoundMeterContainer 的面板，电平条不会显示。请在 Widget 蓝图中添加 HorizontalBox/VerticalBox 并命名为 SoundMeterContainer。"));
+	}
+	else if (CachedSegmentWidgets.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SoundWaveformWidget: SoundMeterContainer 下没有子控件，请在容器内添加与段数相等的 Image/Border 等作为每一格。"));
+	}
+	RefreshMeterVisual();
+}
+
+void USoundWaveformWidget::RefreshSegmentCache()
+{
+	CachedSegmentWidgets.Reset();
+	if (!IsValid(SoundMeterContainer))
+	{
+		return;
 	}
 
-	// 获取绘制区域大小
-	FVector2D WidgetSize = AllottedGeometry.GetLocalSize();
-	float WidgetWidth = WidgetSize.X;
-	float WidgetHeight = WidgetSize.Y;
-	
-	// 安全检查：如果Widget尺寸无效，直接返回
-	if (WidgetWidth <= 0.0f || WidgetHeight <= 0.0f)
+	CachedSegmentWidgets = SoundMeterContainer->GetAllChildren();
+}
+
+void USoundWaveformWidget::RefreshMeterVisual()
+{
+	const int32 Segments = CachedSegmentWidgets.Num();
+	if (Segments <= 0)
 	{
-		return MaxLayerId;
-	}
-	
-	float CenterY = WidgetHeight * CenterLinePosition;
-
-	// 计算每个数据点的X坐标间距
-	float PointSpacing = WidgetWidth / (CurrentWaveformData.Num() - 1);
-
-	// 绘制波形线
-	TArray<FVector2D> Points;
-	Points.Reserve(CurrentWaveformData.Num());
-
-	for (int32 i = 0; i < CurrentWaveformData.Num(); i++)
-	{
-		float X = i * PointSpacing;
-		// 将声音级别（0-1）映射到波形高度
-		// 波形在中心线上下对称显示
-		float Amplitude = CurrentWaveformData[i] * (WidgetHeight * 0.4f); // 使用40%的高度作为最大振幅
-		float Y = CenterY - Amplitude; // 负值表示向上
-		
-		Points.Add(FVector2D(X, Y));
+		return;
 	}
 
-	// 绘制波形线条
-	if (Points.Num() >= 2)
+	const float ScaledLevel = FMath::Max(0.0f, CurrentSoundLevel * Sensitivity);
+	const float LitFloat = ScaledLevel * static_cast<float>(Segments);
+	const int32 NumLit = (ScaledLevel >= 1.0f)
+		? Segments
+		: FMath::Clamp(FMath::FloorToInt(LitFloat), 0, Segments);
+
+	for (int32 SegmentIdx = 0; SegmentIdx < Segments; ++SegmentIdx)
 	{
-		FSlateDrawElement::MakeLines(
-			OutDrawElements,
-			MaxLayerId++,
-			AllottedGeometry.ToPaintGeometry(),
-			Points,
-			ESlateDrawEffect::None,
-			WaveformColor,
-			false, // 不闭合
-			LineThickness
-		);
+		const bool bLit = SegmentIdx < NumLit;
+		const int32 ChildIdx = bReverseSegmentChildMapping ? (Segments - 1 - SegmentIdx) : SegmentIdx;
+		if (CachedSegmentWidgets.IsValidIndex(ChildIdx))
+		{
+			ApplySegmentStyle(CachedSegmentWidgets[ChildIdx], bLit, FilledSegmentColor, EmptySegmentColor);
+		}
 	}
+}
 
-	// 绘制中心线（可选）
-	FSlateDrawElement::MakeLines(
-		OutDrawElements,
-		MaxLayerId++,
-		AllottedGeometry.ToPaintGeometry(),
-		TArray<FVector2D>{ FVector2D(0, CenterY), FVector2D(WidgetWidth, CenterY) },
-		ESlateDrawEffect::None,
-		FLinearColor(0.3f, 0.3f, 0.3f, 1.0f), // 灰色中心线
-		false,
-		1.0f
-	);
+void USoundWaveformWidget::UpdateSoundLevel(float InLevel)
+{
+	CurrentSoundLevel = FMath::Max(0.0f, InLevel);
+	RefreshMeterVisual();
+}
 
-	return MaxLayerId;
+void USoundWaveformWidget::UpdateWaveform(const TArray<float>& WaveformData)
+{
+	if (WaveformData.Num() > 0)
+	{
+		UpdateSoundLevel(WaveformData.Last());
+	}
+	else
+	{
+		UpdateSoundLevel(0.0f);
+	}
 }

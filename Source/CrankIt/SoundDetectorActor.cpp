@@ -21,10 +21,12 @@ ASoundDetectorActor::ASoundDetectorActor()
 	DetectorMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DetectorMesh"));
 	DetectorMesh->SetupAttachment(RootComponent);
 
-	// 创建3D界面组件
+	// 创建3D界面组件（挂在 Root 上，避免随 DetectorMesh 的非均匀缩放/变形影响 UI；位置与朝向请在蓝图里相对 Root 调整）
 	ScreenWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("ScreenWidget"));
-	ScreenWidget->SetupAttachment(DetectorMesh);
+	ScreenWidget->SetupAttachment(RootComponent);
 	ScreenWidget->SetWidgetSpace(EWidgetSpace::World);
+	// 按 Widget 的 DesiredSize 决定 RT 尺寸，避免窄条类布局被硬拉到固定 DrawSize 产生形变
+	ScreenWidget->SetDrawAtDesiredSize(true);
 	ScreenWidget->SetDrawSize(FVector2D(1920, 1080));
 	ScreenWidget->SetPivot(FVector2D(0.5f, 0.5f));
 
@@ -32,14 +34,6 @@ ASoundDetectorActor::ASoundDetectorActor()
 	AudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComponent"));
 	AudioComponent->SetupAttachment(DetectorMesh);
 	AudioComponent->bAutoActivate = false;
-
-	// 初始化波形数据
-	WaveformPoints = 100;
-	WaveformData.SetNum(WaveformPoints);
-	for (int32 i = 0; i < WaveformPoints; i++)
-	{
-		WaveformData[i] = 0.0f;
-	}
 
 	LastUpdateTime = 0.0f;
 	UpdateRate = 60.0f;
@@ -184,17 +178,8 @@ float ASoundDetectorActor::CalculateSoundIntensity(const FVector& SoundLocation,
 
 void ASoundDetectorActor::UpdateWaveform(float SoundLevel)
 {
-	// 将新数据添加到波形数组（滚动更新）
-	if (WaveformData.Num() > 0)
-	{
-		// 移除第一个元素，添加新元素到末尾
-		WaveformData.RemoveAt(0);
-		WaveformData.Add(SoundLevel);
-	}
-
-	// 更新Widget显示
 	if (WaveformWidget)
 	{
-		WaveformWidget->UpdateWaveform(WaveformData);
+		WaveformWidget->UpdateSoundLevel(SoundLevel);
 	}
 }

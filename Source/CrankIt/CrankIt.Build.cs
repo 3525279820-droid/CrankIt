@@ -9,7 +9,7 @@ public class CrankIt : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", 
-			"EnhancedInput", "UMG", "AudioMixer" });
+			"EnhancedInput", "UMG", "AudioMixer", "LevelSequence", "MovieScene" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 

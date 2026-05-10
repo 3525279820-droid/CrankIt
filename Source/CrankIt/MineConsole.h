@@ -66,6 +66,9 @@ public:
 	
 	float AngularVelocityYaw = 0.f;
 
+	UPROPERTY(EditAnywhere)
+	float SpinVelocity = 800.f;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

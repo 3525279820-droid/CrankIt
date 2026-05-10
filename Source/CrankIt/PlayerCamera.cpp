@@ -50,6 +50,36 @@ void APlayerCamera::ApplyExplorationInputMode(APlayerController* PC)
 	FSlateApplication::Get().SetAllUserFocusToGameViewport(EFocusCause::SetDirectly);
 }
 
+void APlayerCamera::SetExplorationMappingContextEnabled(APlayerController* PC, bool bEnabled)
+{
+	if (!PC)
+	{
+		return;
+	}
+	APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn());
+	if (!Cam || !Cam->DefaultMappingContext)
+	{
+		return;
+	}
+	ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
+	if (!LocalPlayer)
+	{
+		return;
+	}
+	if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
+	{
+		if (bEnabled)
+		{
+			Subsystem->AddMappingContext(Cam->DefaultMappingContext, 0);
+		}
+		else
+		{
+			Subsystem->RemoveMappingContext(Cam->DefaultMappingContext);
+		}
+	}
+}
+
 // Called when the game starts or when spawned
 void APlayerCamera::BeginPlay()
 {
@@ -93,29 +123,7 @@ void APlayerCamera::BeginPlay()
 			SubtitlesWidget->AddToPlayerScreen(200);
 		}
 	}
-
 	
-	// 无语音文件时：用世界时间轴跑几条测试字幕（上面已 AddToPlayerScreen；纯 C++ Widget 会自动建底栏 TextBlock）。
-	if (UWorld* World = GetWorld())
-	{
-		if (USubtitleSubsystem* SubtitleSys = World->GetSubsystem<USubtitleSubsystem>())
-		{
-			TArray<FCrankItSubtitleCue> TestCues;
-			auto AddCue = [&TestCues](float Start, float End, const FString& Msg)
-			{
-				FCrankItSubtitleCue Cue;
-				Cue.StartTimeSeconds = Start;
-				Cue.EndTimeSeconds = End;
-				Cue.Text = FText::FromString(Msg);
-				TestCues.Add(Cue);
-			};
-			AddCue(0.f, 2.5f, FString(TEXT("【字幕测试】第一句（0~2.5 秒）")));
-			AddCue(2.5f, 5.f, FString(TEXT("【字幕测试】第二句（2.5~5 秒）")));
-			AddCue(5.f, 8.f, FString(TEXT("【字幕测试】第三句（5~8 秒）")));
-			AddCue(8.f, 11.f, FString(TEXT("【字幕测试】第四句（8~11 秒后本轨结束）")));
-			SubtitleSys->StartSubtitleTrackWithWorldTime(TestCues);
-		}
-	}
 }
 
 // Called every frame
@@ -152,7 +160,7 @@ void APlayerCamera::Tick(float DeltaTime)
 	
 	UPrimitiveComponent* HitComp = HitResult.GetComponent();
 	
-	if(HitComp)
+	if(not bIsInCinematic and HitComp)
 	{
 
 		if(HitComp->ComponentHasTag("ChargeHandle"))

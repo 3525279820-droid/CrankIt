@@ -49,18 +49,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound Detection")
 	float DetectionRange = 1000.0f;
 
-	// 检测角度（度）++++++++++++++++++++++++++++++96666666
-
+	// 检测角度（度）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound Detection")
 	float DetectionAngle = 60.0f;
 
 	// 更新频率（Hz）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound Detection")
 	float UpdateRate = 60.0f;
-
-	// 波形数据点数量
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound Detection")
-	int32 WaveformPoints = 100;
 
 	UFUNCTION()
 	void OnSubmixEnvelope(const TArray<float>& Envelope);
@@ -80,11 +75,8 @@ private:
 	// 计算声音强度
 	float CalculateSoundIntensity(const FVector& SoundLocation, float SoundVolume);
 
-	// 更新波形显示
+	// 更新探测器 UI 电平
 	void UpdateWaveform(float SoundLevel);
-
-	// 波形数据数组
-	TArray<float> WaveformData;
 
 	// 上次更新时间
 	float LastUpdateTime;
