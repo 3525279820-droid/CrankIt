@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/BoxComponent.h"
+#include "Battery.h"
 #include "BatterySlotTrigger.generated.h"
 /**
  * 
@@ -15,6 +16,9 @@ class CRANKIT_API UBatterySlotTrigger : public UBoxComponent
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
+
+	/** 开局时已在盒体内的电池不会收到 BeginOverlap，据此同步 canCharge；下一帧再跑一次以应对首帧碰撞未就绪。 */
+	void SyncOverlappingBatteryChargeState();
 
 public:
 	// Called every frame
@@ -34,4 +38,18 @@ bool bFromSweep, const FHitResult& SweepResult);
 	UFUNCTION()
 	void OnOverlapEnd(UPrimitiveComponent* OverlappedComp,  AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	/** 放回槽位时线性插值：Alpha 每秒增加量（1 ≈ 约 1 秒从起点到槽位） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battery|Placement")
+	float BatteryReturnLerpSpeed = 2.f;
+
+protected:
+	void UpdateBatteryReturnMotion(float DeltaTime);
+
+	UPROPERTY(Transient)
+	ABattery* ReturningBattery = nullptr;
+
+	FVector BatteryReturnStartLoc = FVector::ZeroVector;
+	FQuat BatteryReturnStartQuat = FQuat::Identity;
+	float BatteryReturnAlpha = 0.f;
 };

@@ -17,6 +17,11 @@ AMonster::AMonster()
 	
 	MonsterBase = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MonsterBase"));
 	MonsterBase->SetupAttachment(RootComp);
+
+	// 出现音用组件播放而非 PlaySoundAtLocation，以便 SoundDetector 遍历 UAudioComponent + 摄像机锥检测
+	AppearAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("AppearAudioComponent"));
+	AppearAudioComponent->SetupAttachment(RootComp);
+	AppearAudioComponent->bAutoActivate = false;
 }
 
 // Called when the game starts or when spawned
@@ -42,9 +47,14 @@ void AMonster::SpawnAtRandomDirection(APlayerCamera* Player)
 	if (CurrentDirection == "East") SpawnLocation += FVector(0.f, 500.f, 100.f);
 	else if (CurrentDirection == "West") SpawnLocation += FVector(0.f, -500.f, 100.f);
 	else if (CurrentDirection == "North") SpawnLocation += FVector(500.f, 0.f, 100.f);
-	UE_LOG(LogTemp, Display, TEXT("怪物生成在：%s"), *CurrentDirection)
+	UE_LOG(LogTemp, Display, TEXT("怪物生成在：%s"), *CurrentDirection);
 
 	SetActorLocation(SpawnLocation);
+	if (MonsterAppearSound && AppearAudioComponent)
+	{
+		AppearAudioComponent->SetSound(MonsterAppearSound);
+		AppearAudioComponent->Play(); // 世界位置随 Root，与生成方位一致
+	}
 }
 
 void AMonster::AdvanceTowardsPlayer()

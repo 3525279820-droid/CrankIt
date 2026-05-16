@@ -38,7 +38,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="UI")
 	int32 ChargeProgress = 0;
 
-	bool canCharge = true;
+	UPROPERTY(EditAnywhere)
+	bool canCharge = false;
 
 
 	

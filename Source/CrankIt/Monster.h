@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Components/AudioComponent.h"
 #include "PlayerCamera.h"
 #include "Monster.generated.h"
 
@@ -43,6 +44,13 @@ protected:
 	// 是否当前活跃（可见、可驱赶）
 	UPROPERTY(VisibleAnywhere, Category="Monster")
 	bool bIsActive=true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Monster | Audio")
+	TObjectPtr<USoundBase> MonsterAppearSound;
+
+	/** 出现音效经此组件播放，便于 SoundDetector 按空间与朝向检测 */
+	UPROPERTY(VisibleAnywhere, Category="Monster | Audio")
+	TObjectPtr<UAudioComponent> AppearAudioComponent;
 	
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* MonsterBase;

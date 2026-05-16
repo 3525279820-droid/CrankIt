@@ -6,6 +6,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "SubtitleSubsystem.h"
 #include "LevelSequenceActor.h"
+#include "SDTutorialWidget.h"
 #include "SkipTutorialWidget.h"
 #include "InitLevel.generated.h"
 
@@ -23,6 +24,10 @@ private:
 
 	FTimerHandle SequencerTimer;
 
+	TArray<FCrankItSubtitleCue> TestCues;
+
+	USubtitleSubsystem* SubtitleSys = nullptr;
+
 	/** OnFinished 为动态委托，须 UFUNCTION + AddDynamic。 */
 	UFUNCTION()
 	void OnLevelSequenceFinished();
@@ -34,8 +39,16 @@ private:
 	UPROPERTY()
 	USkipTutorialWidget* Skt = nullptr;
 
+	UPROPERTY()
+	USDTutorialWidget* TutorialWidget = nullptr;
+
 public:
+	UFUNCTION()
+	void OnTutorialClosed();
+	
 	void PlaySequence();
+
+	void ShowTutorial();
 
 	/** 跳过教程 / 继续教程：停过场、关 UI、恢复操作与 EI（当前两者行为一致，后续可再分支）。 */
 	void StopIntroCutsceneAndReturnToGame();

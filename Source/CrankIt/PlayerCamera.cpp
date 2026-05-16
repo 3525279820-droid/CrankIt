@@ -30,6 +30,9 @@ APlayerCamera::APlayerCamera()
 	BatteryHoldPoint = CreateDefaultSubobject<USceneComponent>(TEXT("BatteryHoldPoint"));
 	BatteryHoldPoint->SetupAttachment(CameraComp);
 
+	SoundDetectorHoldPoint = CreateDefaultSubobject<USceneComponent>(TEXT("SoundDetectorHoldPoint"));
+	SoundDetectorHoldPoint->SetupAttachment(CameraComp);
+	
 }
 
 void APlayerCamera::ApplyExplorationInputMode(APlayerController* PC)
@@ -84,6 +87,13 @@ void APlayerCamera::SetExplorationMappingContextEnabled(APlayerController* PC, b
 void APlayerCamera::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (SoundDetectorHoldPoint)
+	{
+		SoundDetectorHoldBaseRelativeLocation = SoundDetectorHoldPoint->GetRelativeLocation();
+		SoundDetectorHoldCurrentLift = 0.f;
+	}
+
 	PlayerController = Cast<APlayerController>(Controller);
 	if (PlayerController)
 	{
@@ -130,6 +140,8 @@ void APlayerCamera::BeginPlay()
 void APlayerCamera::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	UpdateBatteryPickupMotion(DeltaTime);
+
 	FHitResult HitResult;
 
 	if (PlayerControllerRef)
@@ -159,6 +171,10 @@ void APlayerCamera::Tick(float DeltaTime)
 	//检查鼠标指向对象
 	
 	UPrimitiveComponent* HitComp = HitResult.GetComponent();
+	if(bIsInCinematic)
+	{
+		MineConsole->ShouldRotate = false;
+	}
 	
 	if(not bIsInCinematic and HitComp)
 	{
@@ -173,7 +189,7 @@ void APlayerCamera::Tick(float DeltaTime)
 
 		else if(HitComp->ComponentHasTag("Battery"))
 		{
-			if(not HoldBattery)
+			if(not HoldBattery and not BatteryMovingToHold)
 			{
 				TargetBattery = Cast<ABattery>(HitComp->GetOwner());
 			}
@@ -206,12 +222,53 @@ void APlayerCamera::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 void APlayerCamera::InteractInput(const FInputActionValue& InputActionValue)
 {
-	if(TargetBattery and not HoldBattery)
+	if (TargetBattery and not HoldBattery and not BatteryMovingToHold)
 	{
-		TargetBattery->RootComp->SetWorldLocation(BatteryHoldPoint->GetComponentLocation());
-		TargetBattery->RootComp->SetWorldRotation(BatteryHoldPoint->GetComponentRotation());
-		HoldBattery = TargetBattery;
+		BatteryMovingToHold = TargetBattery;
+		if (BatteryMovingToHold->RootComp)
+		{
+			BatteryPickupStartLoc = BatteryMovingToHold->RootComp->GetComponentLocation();
+			BatteryPickupStartQuat = BatteryMovingToHold->RootComp->GetComponentQuat();
+			BatteryPickupMoveAlpha = 0.f;
+		}
 		TargetBattery = nullptr;
+	}
+}
+
+void APlayerCamera::UpdateBatteryPickupMotion(float DeltaTime)
+{
+	if (!BatteryMovingToHold || !BatteryHoldPoint)
+	{
+		return;
+	}
+	if (!IsValid(BatteryMovingToHold) || !BatteryMovingToHold->RootComp)
+	{
+		BatteryMovingToHold = nullptr;
+		return;
+	}
+
+	if (DeltaTime <= 0.f)
+	{
+		return;
+	}
+
+	USceneComponent* Root = BatteryMovingToHold->RootComp;
+	const FVector TargetLoc = BatteryHoldPoint->GetComponentLocation();
+	const FQuat TargetQuat = BatteryHoldPoint->GetComponentQuat();
+
+	const float Rate = FMath::Max(BatteryPickupLerpSpeed, KINDA_SMALL_NUMBER);
+	BatteryPickupMoveAlpha = FMath::Clamp(BatteryPickupMoveAlpha + DeltaTime * Rate, 0.f, 1.f);
+
+	const FVector NewLoc = FMath::Lerp(BatteryPickupStartLoc, TargetLoc, BatteryPickupMoveAlpha);
+	const FQuat NewQuat = FQuat::Slerp(BatteryPickupStartQuat, TargetQuat, BatteryPickupMoveAlpha);
+	Root->SetWorldLocationAndRotation(NewLoc, NewQuat);
+
+	if (BatteryPickupMoveAlpha >= 1.f - KINDA_SMALL_NUMBER)
+	{
+		Root->SetWorldLocationAndRotation(TargetLoc, TargetQuat);
+		HoldBattery = BatteryMovingToHold;
+		BatteryMovingToHold = nullptr;
+		BatteryPickupMoveAlpha = 0.f;
 	}
 }
 
@@ -240,4 +297,19 @@ void APlayerCamera::ExitScreenInput(const FInputActionValue& value)
 
 void APlayerCamera::PickBattery()
 {
+}
+
+void APlayerCamera::MoveSoundDetectorHoldPointUp(float DeltaTime)
+{
+	if (!SoundDetectorHoldPoint || DeltaTime <= 0.f)
+	{
+		return;
+	}
+
+	const float Step = SoundDetectorHoldLiftSpeed * DeltaTime;
+	SoundDetectorHoldCurrentLift += Step;
+	SoundDetectorHoldCurrentLift = FMath::Clamp(SoundDetectorHoldCurrentLift, 0.f, SoundDetectorHoldLiftDistance);
+	const FVector NewRelativeLocation =
+		SoundDetectorHoldBaseRelativeLocation + FVector(0.f, 0.f, SoundDetectorHoldCurrentLift);
+	SoundDetectorHoldPoint->SetRelativeLocation(NewRelativeLocation);
 }

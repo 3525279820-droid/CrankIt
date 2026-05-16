@@ -2,8 +2,8 @@
 
 #include "SoundDetectorActor.h"
 #include "SoundWaveformWidget.h"
+#include "PlayerCamera.h"
 #include "Kismet/GameplayStatics.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "Components/WidgetComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -86,65 +86,110 @@ void ASoundDetectorActor::Tick(float DeltaTime)
 	LastUpdateTime += DeltaTime;
 	if (LastUpdateTime >= UpdateInterval)
 	{
-
-		float SoundLevel = 0.0f;
+		TArray<float> EnvelopeCopy;
+		float EnvelopeRMS = 0.0f;
 		{
 			FScopeLock Lock(&EnvelopeMutex);
-			if (LatestEnvelope.Num() > 0)
-			{
-				// 取通道最大或计算 RMS
-				float SumSq = 0.0f;
-				for (float v : LatestEnvelope) { SumSq += v * v; }
-				float RMS = FMath::Sqrt(SumSq / LatestEnvelope.Num());
-				SoundLevel = RMS; // 或者 FMath::Max(LatestEnvelope) 取峰值
-			}
+			EnvelopeCopy = LatestEnvelope;
 		}
 
-		UpdateWaveform(SoundLevel);
+		if (EnvelopeCopy.Num() > 0)
+		{
+			float SumSq = 0.0f;
+			for (float v : EnvelopeCopy)
+			{
+				SumSq += v * v;
+			}
+			EnvelopeRMS = FMath::Sqrt(SumSq / static_cast<float>(EnvelopeCopy.Num()));
+		}
+
+		// Submix 包络保留波形形状；乘摄像机锥方向增益，使 UI 随玩家视角而非探测器模型朝向变化
+		const float DirectionalGain = ComputeDirectionalSoundIntensity();
+		for (float& v : EnvelopeCopy)
+		{
+			v *= DirectionalGain;
+		}
+
+		if (WaveformWidget)
+		{
+			if (EnvelopeCopy.Num() > 0)
+			{
+				WaveformWidget->UpdateWaveform(EnvelopeCopy);
+			}
+			else
+			{
+				WaveformWidget->UpdateSoundLevel(0.0f);
+			}
+			WaveformWidget->UpdateSoundLevel(EnvelopeRMS * DirectionalGain);
+		}
+
 		LastUpdateTime = 0.0f;
 	}
 }
 
-
-void ASoundDetectorActor::DetectSoundInFront()
+bool ASoundDetectorActor::TryGetCameraDetectionFrame(FVector& OutOrigin, FVector& OutForward) const
 {
-	FVector DetectorLocation = GetActorLocation();
-	FVector DetectorForward = GetActorForwardVector();
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
 
-	// 检测场景中的声音源
+	// 与 Monster 等逻辑一致：玩家 Pawn 为 APlayerCamera，检测帧用其 CameraComp（非探测器 Actor 位姿）
+	const APlayerCamera* PlayerCam = Cast<APlayerCamera>(UGameplayStatics::GetPlayerPawn(World, 0));
+	if (!PlayerCam || !PlayerCam->CameraComp)
+	{
+		return false;
+	}
+
+	OutOrigin = PlayerCam->CameraComp->GetComponentLocation();
+	OutForward = PlayerCam->CameraComp->GetForwardVector();
+	return true;
+}
+
+float ASoundDetectorActor::ComputeDirectionalSoundIntensity() const
+{
+	FVector ListenerOrigin;
+	FVector ListenerForward;
+	if (!TryGetCameraDetectionFrame(ListenerOrigin, ListenerForward))
+	{
+		return 0.0f;
+	}
+
 	float MaxSoundLevel = 0.0f;
-	
-	// 遍历所有Actor查找AudioComponent
+
 	for (TActorIterator<AActor> ActorIterator(GetWorld()); ActorIterator; ++ActorIterator)
 	{
 		AActor* Actor = *ActorIterator;
-		if (!Actor) continue;
+		if (!Actor)
+		{
+			continue;
+		}
 		TArray<UAudioComponent*> Components;
 		Actor->GetComponents<UAudioComponent>(Components);
-		
+
 		for (UAudioComponent* AudioComp : Components)
 		{
 			if (AudioComp && AudioComp->IsPlaying())
 			{
-				FVector SoundLocation = AudioComp->GetComponentLocation();
-				FVector ToSound = (SoundLocation - DetectorLocation).GetSafeNormal();
-				
-				// 检查声音是否在探测器前方
-				float SoundDot = FVector::DotProduct(DetectorForward, ToSound);
-				if (SoundDot > 0.0f) // 在前方
+				const FVector SoundLocation = AudioComp->GetComponentLocation();
+				const FVector ToSound = (SoundLocation - ListenerOrigin).GetSafeNormal();
+
+				// 相对摄像机朝前的三维夹角（含俯仰），非水平面方位角
+				const float SoundDot = FVector::DotProduct(ListenerForward, ToSound);
+				if (SoundDot > 0.0f)
 				{
-					float SoundDistance = FVector::Dist(DetectorLocation, SoundLocation);
+					const float SoundDistance = FVector::Dist(ListenerOrigin, SoundLocation);
 					if (SoundDistance <= DetectionRange)
 					{
-						// 检查角度是否在检测范围内
-						float AngleRad = FMath::Acos(SoundDot);
-						float AngleDeg = FMath::RadiansToDegrees(AngleRad);
-						
+						const float AngleRad = FMath::Acos(FMath::Clamp(SoundDot, -1.0f, 1.0f));
+						const float AngleDeg = FMath::RadiansToDegrees(AngleRad);
+
 						if (AngleDeg <= DetectionAngle / 2.0f)
 						{
-							// 计算声音强度（基于距离和音量）
-							float Volume = AudioComp->VolumeMultiplier;
-							float Intensity = CalculateSoundIntensity(SoundLocation, Volume);
+							const float Volume = AudioComp->VolumeMultiplier;
+							const float Intensity = CalculateSoundIntensity(
+								ListenerOrigin, ListenerForward, SoundLocation, Volume);
 							MaxSoundLevel = FMath::Max(MaxSoundLevel, Intensity);
 						}
 					}
@@ -153,26 +198,25 @@ void ASoundDetectorActor::DetectSoundInFront()
 		}
 	}
 
-	// 更新波形
-	UpdateWaveform(MaxSoundLevel);
+	return MaxSoundLevel;
 }
 
-float ASoundDetectorActor::CalculateSoundIntensity(const FVector& SoundLocation, float SoundVolume)
+float ASoundDetectorActor::CalculateSoundIntensity(
+	const FVector& ListenerOrigin,
+	const FVector& ListenerForward,
+	const FVector& SoundLocation,
+	float SoundVolume) const
 {
-	FVector DetectorLocation = GetActorLocation();
-	float Distance = FVector::Dist(DetectorLocation, SoundLocation);
-	
-	// 距离衰减（平方反比定律）
+	const float Distance = FVector::Dist(ListenerOrigin, SoundLocation);
+
+	// 距离衰减：以摄像机为原点
 	float DistanceAttenuation = 1.0f / (1.0f + Distance * Distance / (DetectionRange * DetectionRange));
-	
-	// 角度衰减
-	FVector DetectorForward = GetActorForwardVector();
-	FVector ToSound = (SoundLocation - DetectorLocation).GetSafeNormal();
-	float DotProduct = FVector::DotProduct(DetectorForward, ToSound);
-	float AngleFactor = FMath::Max(0.0f, DotProduct); // 只考虑前方的声音
-	
-	// 综合计算
-	float Intensity = SoundVolume * DistanceAttenuation * AngleFactor;
+
+	const FVector ToSound = (SoundLocation - ListenerOrigin).GetSafeNormal();
+	const float DotProduct = FVector::DotProduct(ListenerForward, ToSound);
+	const float AngleFactor = FMath::Max(0.0f, DotProduct);
+
+	const float Intensity = SoundVolume * DistanceAttenuation * AngleFactor;
 	return FMath::Clamp(Intensity, 0.0f, 1.0f);
 }
 

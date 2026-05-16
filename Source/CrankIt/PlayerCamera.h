@@ -12,6 +12,7 @@
 #include "MineConsole.h"
 #include "ComputerScreenActor.h"
 #include "SubtitleWidget.h"
+#include "SDTutorialWidget.h"
 #include "LevelSequenceActor.h"
 #include "SkipTutorialWidget.h"
 
@@ -46,11 +47,31 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArmComp;
 	
+	/** 玩家视角；ASoundDetectorActor 以其世界位置与朝前作为声音锥检测原点/正向（非探测器模型） */
 	UPROPERTY(VisibleAnywhere)
 	UCameraComponent* CameraComp;
 
 	UPROPERTY(VisibleAnywhere)
+	USceneComponent* SoundDetectorHoldPoint;
+
+	/** 相对基准位置向上抬升的最大距离（厘米） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SoundDetector|Hold")
+	float SoundDetectorHoldLiftDistance = 20.f;
+
+	/** 抬升速度（厘米/秒） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SoundDetector|Hold")
+	float SoundDetectorHoldLiftSpeed = 80.f;
+
+	/** 每帧调用：将 SoundDetectorHoldPoint 沿本地 Z 以可调速度平滑上移，直至达到 SoundDetectorHoldLiftDistance */
+	UFUNCTION(BlueprintCallable, Category = "SoundDetector|Hold")
+	void MoveSoundDetectorHoldPointUp(float DeltaTime);
+
+	UPROPERTY(VisibleAnywhere)
 	USceneComponent* BatteryHoldPoint;
+
+	/** 拾起时线性插值：Alpha 每秒增加量（1 ≈ 约 1 秒从起点到当前挂点） */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battery|Pickup")
+	float BatteryPickupLerpSpeed = 2.f;
 	
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputMappingContext* DefaultMappingContext;
@@ -70,7 +91,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Tutorial")
 	TSubclassOf<USkipTutorialWidget> SktWidgetClass;
 
-
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Tutorial")
+	TSubclassOf<USDTutorialWidget> TutorialWidgetClass;
+	
 	UPROPERTY(EditAnywhere, Category= "Cinematic")
 	TObjectPtr<ULevelSequence> CinematicSequence;
 	
@@ -99,4 +122,17 @@ protected:
 
 	UPROPERTY()
 	USubtitleWidget* SubtitlesWidget = nullptr;
+
+	/** BeginPlay 时从组件读取，作为抬升起点 */
+	FVector SoundDetectorHoldBaseRelativeLocation = FVector::ZeroVector;
+	float SoundDetectorHoldCurrentLift = 0.f;
+
+	/** 交互后正平滑移向 BatteryHoldPoint，到位后写入 HoldBattery */
+	ABattery* BatteryMovingToHold = nullptr;
+
+	FVector BatteryPickupStartLoc = FVector::ZeroVector;
+	FQuat BatteryPickupStartQuat = FQuat::Identity;
+	float BatteryPickupMoveAlpha = 0.f;
+
+	void UpdateBatteryPickupMotion(float DeltaTime);
 };
