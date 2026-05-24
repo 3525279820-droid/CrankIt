@@ -4,6 +4,7 @@
 #include "LightTrigger.h"
 
 #include "EMPLight.h"
+#include "EngineUtils.h"
 
 void ULightTrigger::BeginPlay()
 {
@@ -24,23 +25,17 @@ void ULightTrigger::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 
 void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
-	// UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABattery::StaticClass(), AvailableBatteries);
-	UBatterySlotTrigger* SlotComp = MineConsole->FindComponentByClass<UBatterySlotTrigger>();
-	if (!SlotComp)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("BatterySlotOwner has no UBoxComponent"));
-		return;
-	}
-	
-	if (!MineConsole || SlotTags.Num() == 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Slot owner or tags not set for %s"), *GetName());
-		return;
-	}
-
-	// 收集宿主 Actor 上的所有盒体槽位组件
+	// 从世界场景中收集所有盒体槽位组件
 	TArray<UBatterySlotTrigger*> AllSlotBoxes;
-	MineConsole->GetComponents(AllSlotBoxes);
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AActor> It(World); It; ++It)
+		{
+			TArray<UBatterySlotTrigger*> SlotComponents;
+			It->GetComponents(SlotComponents);
+			AllSlotBoxes.Append(SlotComponents);
+		}
+	}
 
 
 	// 只保留带有本开关指定标签的槽位

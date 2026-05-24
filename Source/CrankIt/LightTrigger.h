@@ -8,7 +8,6 @@
 #include "EMPLight.h"
 #include "Battery.h"
 #include "BatterySlotTrigger.h"
-#include "MineConsole.h"
 #include "Monster.h"
 
 #include "LightTrigger.generated.h"
@@ -46,10 +45,6 @@ public:
 	UPROPERTY(EditAnywhere, Category="Monster")
 	FString CurrentDirection;
 
-	UPROPERTY(EditAnywhere, Category="Battery")
-	AMineConsole* MineConsole;
-
-	
 	UPROPERTY(EditAnywhere, Category="Battery")
 	TArray<FName> SlotTags;   // 这个开关负责的槽位的标签集合（组件标签）
 };

@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "Battery.h"
+#include "BatteryPowerChecker.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/EditableTextBox.h"
 #include "Components/TextBlock.h"
@@ -10,6 +12,7 @@
 #include "Sound/SoundWave.h"
 #include "CalibrationWidget.h"
 #include "ClassificationGameWidget.h"
+#include "DoubleAutoDoor.h"
 
 void UTerminalWidget::GenerateTarget()
 {
@@ -52,7 +55,6 @@ void UTerminalWidget::AddToGuessHistory(const FString& Guess)
         PendingLines.Add(TEXT(""));
         PendingLines.Add(TEXT("Error!"));
         PendingLines.Add(TEXT("Unauthorised use of BOORDLE has been detected"));
-        PendingLines.Add(TEXT("Unauthorised use of BOORDLE has been detected"));
         PendingLines.Add(TEXT("please verify you are human by typing the following:"));
         PendingLines.Add(TEXT("\"I AM A HUMAN BEING\""));
 
@@ -90,7 +92,16 @@ void UTerminalWidget::NativeConstruct()
     ////////////// 初始化终端交互逻辑 ///////////////////////////////////////////////////////
     
     // 初始化命令顺序
-    CommandSequence = { TEXT("CALIBRATE"), TEXT("CLASSIFY") };
+    CommandSequence = { 
+        // TEXT("O"),
+        TEXT("REBOOT"),
+        TEXT("SCAN AND REPAIR"),
+        TEXT("BOORDLE"),
+        TEXT("I AM A HUMAN BEING"),
+        TEXT("LIFT QUARANTINE"),
+        TEXT("CALIBRATE NORTH ENTRY DOOR"),
+        TEXT("ASCEND"),
+         };
     NextCommandIndex = 0;
     
     // 初始化文本命令
@@ -132,6 +143,13 @@ void UTerminalWidget::NativeConstruct()
 
 
     // 初始化行为命令（绑定成员函数或 lambda）
+    CommandActionMap.Add(TEXT("O"), [this]()
+    {
+        if (ADoubleAutoDoor* Door = Cast<ADoubleAutoDoor>(UGameplayStatics::GetActorOfClass(GetWorld(), ADoubleAutoDoor::StaticClass())))
+        {
+            Door->DoorOpened();
+        }
+    });
     CommandActionMap.Add(TEXT("CLEAR"), [this]()
     {
         if (TerminalText)
@@ -298,6 +316,8 @@ void UTerminalWidget::NativeConstruct()
         }
     );
 
+    // 需要电池的命令：BatteryGatedCommands.Add(...) 并在对应 CommandActionMap 中调用 TryStartBatteryHold
+
     //////////////////////////////////////////////////////////////////////////////////
 }
 
@@ -324,16 +344,39 @@ void UTerminalWidget::StartDisplayingLinesProcedure(float delay)
 
 void UTerminalWidget::NativeDestruct()
 {
-    if (GetWorld())
+    if (UWorld* World = GetWorld())
     {
-        GetWorld()->GetTimerManager().ClearTimer(DisplayTimerHandle);
+        World->GetTimerManager().ClearTimer(BatteryHoldTimerHandle);
+        World->GetTimerManager().ClearTimer(DisplayTimerHandle);
     }
+    bBatteryHoldActive = false;
     Super::NativeDestruct();
 }
 
 FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
     const FKey Key = InKeyEvent.GetKey();
+
+    if (bBatteryHoldActive)
+    {
+        if (Key == EKeys::Tab)
+        {
+            if (UWorld* World = GetWorld())
+            {
+                if (APlayerController* PC = World->GetFirstPlayerController())
+                {
+                    if (APawn* Pawn = PC->GetPawn())
+                    {
+                        if (APlayerCamera* PlayerCamera = Cast<APlayerCamera>(Pawn))
+                        {
+                            PlayerCamera->ExitScreenInput(FInputActionValue());
+                        }
+                    }
+                }
+            }
+        }
+        return FReply::Handled();
+    }
 
     // 如果当前处于分类小游戏中，则把输入交给小游戏处理（这里只处理 A / D / Enter 三个键）
     if (CurrentInputMode == ETerminalInputMode::ClassificationGame)
@@ -450,9 +493,24 @@ void UTerminalWidget::CommitGuessNum()
 
 void UTerminalWidget::CommitInput()
 {
+    CurrentText += CurrentInputLine + TEXT("\n");
+
+    if (bBatteryHoldActive)
+    {
+        PendingLines.Add(TEXT("Auxiliary power transfer in progress. Please wait..."));
+        StartDisplayingLines();
+        CurrentInputLine.Empty();
+        UpdateDisplay();
+        return;
+    }
+
     // 防止越界
     if(NextCommandIndex >= CommandSequence.Num())
     {
+        PendingLines.Add(FString::Printf(TEXT("Unknown command: %s"), *CurrentInputLine));
+        StartDisplayingLines();
+        CurrentInputLine.Empty();
+        UpdateDisplay();
         return;
     }
     // 清空终端
@@ -461,8 +519,6 @@ void UTerminalWidget::CommitInput()
     // 目前应当输入的命令
     const FString& Expected = CommandSequence[NextCommandIndex];
     
-    // 先把输入行追加到 CurrentText
-    CurrentText += CurrentInputLine + TEXT("\n");
     UE_LOG(LogTemp, Display, TEXT("now index: %d"), NextCommandIndex);
 
     if (CurrentInputLine.Equals(Expected))
@@ -719,4 +775,159 @@ void UTerminalWidget::UpdateDisplay()
 
 void UTerminalWidget::ClearTerminal()
 {
+}
+
+// ================= 终端槽位供电 =================
+
+void UTerminalWidget::TryStartBatteryHold(const FString& Command)
+{
+    if (!BatteryGatedCommands.Contains(Command))
+    {
+        return;
+    }
+
+    if (bBatteryHoldActive)
+    {
+        PendingLines.Add(TEXT("Auxiliary transfer already in progress."));
+        StartDisplayingLines();
+        return;
+    }
+
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        return;
+    }
+
+    if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))
+    {
+        PendingLines.Append({
+            TEXT(""),
+            TEXT("ERROR: Low auxiliary power."),
+            TEXT("Insert powered batteries into TerminalSlot slots."),
+            TEXT(""),
+        });
+        StartDisplayingLines();
+        return;
+    }
+
+    const float Now = World->GetTimeSeconds();
+    bBatteryHoldActive = true;
+    BatteryHoldEndTime = Now + BatteryHoldDurationSeconds;
+    BatteryHoldLastDrainTime = Now;
+    BatteryHoldLastProgressTime = Now;
+    CurrentInputLine.Empty();
+    UpdateDisplay();
+
+    PendingLines.Append({
+        TEXT(""),
+        TEXT("Auxiliary power transfer initiated."),
+        TEXT("Do not remove batteries until transfer completes."),
+        FString::Printf(TEXT("Transfer remaining: %d seconds"), FMath::CeilToInt(BatteryHoldDurationSeconds)),
+        TEXT(""),
+    });
+    StartDisplayingLines();
+
+    World->GetTimerManager().SetTimer(
+        BatteryHoldTimerHandle,
+        this,
+        &UTerminalWidget::OnBatteryHoldTick,
+        BatteryHoldTickInterval,
+        true
+    );
+}
+
+void UTerminalWidget::OnBatteryHoldTick()
+{
+    if (!bBatteryHoldActive)
+    {
+        return;
+    }
+
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        EndBatteryHold(false);
+        return;
+    }
+
+    const float Now = World->GetTimeSeconds();
+
+    if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))
+    {
+        EndBatteryHold(false);
+        return;
+    }
+
+    if (BatteryDrainInterval > KINDA_SMALL_NUMBER && Now - BatteryHoldLastDrainTime >= BatteryDrainInterval)
+    {
+        BatteryHoldLastDrainTime = Now;
+        TArray<ABattery*> Batteries;
+        FBatteryPowerChecker::GetBatteriesInTerminalSlots(World, MinBatteryChargeLevel, Batteries);
+        for (ABattery* Battery : Batteries)
+        {
+            if (Battery)
+            {
+                Battery->SetChargeProgress(FMath::Max(0, Battery->ChargeProgress - BatteryDrainAmount));
+            }
+        }
+        if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))
+        {
+            EndBatteryHold(false);
+            return;
+        }
+    }
+
+    if (Now - BatteryHoldLastProgressTime >= 10.f)
+    {
+        BatteryHoldLastProgressTime = Now;
+        PendingLines.Add(FString::Printf(
+            TEXT("Transfer remaining: %d seconds"),
+            FMath::CeilToInt(FMath::Max(0.f, BatteryHoldEndTime - Now))));
+        StartDisplayingLines();
+    }
+
+    if (Now >= BatteryHoldEndTime)
+    {
+        EndBatteryHold(true);
+    }
+}
+
+void UTerminalWidget::EndBatteryHold(bool bSuccess)
+{
+    if (!bBatteryHoldActive)
+    {
+        return;
+    }
+
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().ClearTimer(BatteryHoldTimerHandle);
+    }
+
+    bBatteryHoldActive = false;
+    BatteryHoldEndTime = 0.f;
+
+    if (bSuccess)
+    {
+        PendingLines.Append({
+            TEXT(""),
+            TEXT("Auxiliary power transfer complete."),
+            TEXT("Terminal input restored."),
+            TEXT(""),
+        });
+    }
+    else
+    {
+        PendingLines.Append({
+            TEXT(""),
+            TEXT("Auxiliary power transfer interrupted."),
+            TEXT("Progress reset."),
+            TEXT(""),
+            TEXT("ERROR: Low auxiliary power."),
+            TEXT("Insert powered batteries into TerminalSlot slots."),
+            TEXT(""),
+        });
+    }
+    StartDisplayingLines();
 }

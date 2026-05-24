@@ -72,12 +72,22 @@ void ABattery::ShowChargeProgress()
 
 void ABattery::ResetChargeProgress()
 {
-	for(int i =0; i < 3; i++)
-	{
-		BatteryLights[i]->SetVisibility(false);
-	}
-	UE_LOG(LogTemp, Display, TEXT("Battery Light Reset...."))
+	SetChargeProgress(0);
+}
 
+void ABattery::SetChargeProgress(int32 NewLevel)
+{
+	ChargeProgress = FMath::Clamp(NewLevel, 0, 3);
+	for (int32 i = 0; i < BatteryLights.Num(); ++i)
+	{
+		const bool bOn = ChargeProgress > 0 && i < ChargeProgress;
+		BatteryLights[i]->SetVisibility(bOn);
+	}
+	for (int32 i = 0; i < BatteryChargeLevels.Num(); ++i)
+	{
+		const bool bOn = ChargeProgress > 0 && i < ChargeProgress;
+		BatteryChargeLevels[i]->SetVisibility(bOn);
+	}
 }
 
 

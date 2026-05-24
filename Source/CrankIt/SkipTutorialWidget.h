@@ -8,6 +8,9 @@
 #include "Components/TextBlock.h"
 #include "SkipTutorialWidget.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnYesButtonClicked);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnNoButtonClicked);
+
 /**
  * 
  */
@@ -18,6 +21,12 @@ class CRANKIT_API USkipTutorialWidget : public UUserWidget
 
 public:
 	virtual void NativeConstruct() override;
+
+	UPROPERTY(BlueprintAssignable, Category = "Tutorial")
+	FOnYesButtonClicked YesButtonClicked;
+
+	UPROPERTY(BlueprintAssignable, Category = "Tutorial")
+	FOnNoButtonClicked NoButtonClicked;
 
 	bool bSkipedTutorial = false;
 

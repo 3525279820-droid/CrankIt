@@ -11,6 +11,16 @@
 #include "InitLevel.generated.h"
 
 class ULevelSequencePlayer;
+class APlayerController;
+class APlayerCamera;
+
+/** 单条字幕输入（流程内使用，会转为 FCrankItSubtitleCue）。 */
+struct FInitLevelSubtitleLine
+{
+	float StartTimeSeconds = 0.f;
+	float EndTimeSeconds = 0.f;
+	FString Text;
+};
 
 /**
  * 
@@ -28,13 +38,23 @@ private:
 
 	USubtitleSubsystem* SubtitleSys = nullptr;
 
-	/** OnFinished 为动态委托，须 UFUNCTION + AddDynamic。 */
+	/** 按世界时间播放字幕轨；全部结束后执行 OnComplete（默认可为空）。 */
+	void PlaySubtitleTrack(
+		const TArray<FInitLevelSubtitleLine>& Lines,
+		TFunction<void()> OnComplete = TFunction<void()>());
+
 	UFUNCTION()
 	void OnLevelSequenceFinished();
 
 	void CleanupIntroUIAndRestoreGameplay();
 
 	TWeakObjectPtr<ULevelSequencePlayer> BoundIntroSequencePlayer;
+
+	UPROPERTY()
+	APlayerController* PC = nullptr;
+
+	UPROPERTY()
+	APlayerCamera* Cam = nullptr;
 
 	UPROPERTY()
 	USkipTutorialWidget* Skt = nullptr;
@@ -45,6 +65,13 @@ private:
 public:
 	UFUNCTION()
 	void OnTutorialClosed();
+	void ShowKeyPrompt();
+
+	UFUNCTION()
+	void TutorialSkipped();
+
+	UFUNCTION()
+	void TutorialNotSkipped();
 	
 	void PlaySequence();
 

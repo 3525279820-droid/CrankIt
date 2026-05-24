@@ -23,6 +23,9 @@ public:
 
 	void ResetChargeProgress();
 
+	/** 设置电量并同步指示灯（支持耗电时关灯） */
+	void SetChargeProgress(int32 NewLevel);
+
 	UPROPERTY(VisibleAnywhere)
 	USceneComponent* RootComp;
 	

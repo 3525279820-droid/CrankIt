@@ -19,6 +19,7 @@ FReply USDTutorialWidget::NativeOnPreviewMouseButtonDown(const FGeometry& InGeom
 	{
 		OnDismiss();
 	}
+	
 
 
 	return Super::NativeOnPreviewMouseButtonDown(InGeometry, InMouseEvent);

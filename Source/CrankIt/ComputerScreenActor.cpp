@@ -48,14 +48,31 @@ void AComputerScreenActor::BeginPlay()
 
 	TerminalWidget->AddNewLine("Lift Operational ");
 	TerminalWidget->AddNewLine("descending please wait ");
-	TerminalWidget->AddNewLine("you have reached your destination. ");
-	TerminalWidget->AddNewLine("have a nice day. ");
 
+	GetWorldTimerManager().SetTimer(
+		LiftDesendTimerHandle,
+		this,
+		&AComputerScreenActor::SetBeginText,
+		DesendTime,
+		false
+	);
+}
+
+void AComputerScreenActor::SetFirstPromptText()
+{
 	TerminalWidget->AddNewLine("NCAUGHT EXCEPTION");
 	TerminalWidget->AddNewLine("<invalid mem address>");
 	TerminalWidget->AddNewLine("SYSTEM CORRUPTION has occurred");
 	TerminalWidget->AddNewLine("a REBOOT is required.");
 }
+
+void AComputerScreenActor::SetBeginText()
+{
+	TerminalWidget->AddNewLine("you have reached your destination. ");
+	TerminalWidget->AddNewLine("have a nice day. ");
+}
+
+
 
 void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)
 {

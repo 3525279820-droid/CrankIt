@@ -274,7 +274,7 @@ void APlayerCamera::UpdateBatteryPickupMotion(float DeltaTime)
 
 void APlayerCamera::TurnInput(const FInputActionValue& value)
 {
-	float InputValue = value.Get<float>();
+	const float InputValue = value.Get<float>();
 	FRotator TargetRotation = FRotator::ZeroRotator;
 
 	DeltaRotation.Yaw = InputValue * 90.f;

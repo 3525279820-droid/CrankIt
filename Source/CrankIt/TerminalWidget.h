@@ -77,6 +77,9 @@ private:
 	// 行为命令表：命令 -> 可执行逻辑（lambda 或绑定函数）
 	TMap<FString, TFunction<void()>> CommandActionMap;
 
+	/** 需要检查 TerminalSlot 电池的命令（在 CommandActionMap 中调用 TryStartBatteryHold） */
+	TSet<FString> BatteryGatedCommands;
+
 	// 顺序命令队列
 	UPROPERTY(EditAnywhere, Category="Terminal")
 	TArray<FString> CommandSequence;
@@ -122,5 +125,34 @@ private:
 	UPROPERTY(meta=(BindWidgetOptional))
 	UCalibrationWidget* CalibrationWidget = nullptr;
 	// ========== 分类小游戏相关 End ==========
+
+	// ========== 终端槽位供电（仅 BatteryGatedCommands 白名单命令）==========
+	void TryStartBatteryHold(const FString& Command);
+	void OnBatteryHoldTick();
+	void EndBatteryHold(bool bSuccess);
+
+	bool bBatteryHoldActive = false;
+	FTimerHandle BatteryHoldTimerHandle;
+	float BatteryHoldEndTime = 0.f;
+	float BatteryHoldLastDrainTime = 0.f;
+	float BatteryHoldLastProgressTime = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Battery")
+	int32 RequiredChargedBatteryCount = 1;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Battery")
+	int32 MinBatteryChargeLevel = 1;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Battery")
+	float BatteryHoldDurationSeconds = 60.f;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Battery")
+	float BatteryHoldTickInterval = 0.5f;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Battery")
+	float BatteryDrainInterval = 20.f;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Battery")
+	int32 BatteryDrainAmount = 1;
 
 };

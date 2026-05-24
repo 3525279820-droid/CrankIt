@@ -2,9 +2,6 @@
 
 #include "SkipTutorialWidget.h"
 
-#include "InitLevel.h"
-#include "Kismet/GameplayStatics.h"
-
 void USkipTutorialWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -13,7 +10,7 @@ void USkipTutorialWidget::NativeConstruct()
 	{
 		YesButton->OnClicked.AddDynamic(this, &USkipTutorialWidget::OnYesClicked);
 		YesButton->OnHovered.AddDynamic(this, &USkipTutorialWidget::OnYesButtonHovered);
-		YesButton->OnUnhovered.AddDynamic(this, &USkipTutorialWidget::USkipTutorialWidget::OnYesButtonUnHovered);
+		YesButton->OnUnhovered.AddDynamic(this, &USkipTutorialWidget::OnYesButtonUnHovered);
 	}
 	if (NoButton)
 	{
@@ -24,29 +21,13 @@ void USkipTutorialWidget::NativeConstruct()
 void USkipTutorialWidget::OnYesClicked()
 {
 	bSkipedTutorial = true;
-	if (UWorld* World = GetWorld())
-	{
-		if (AInitLevel* Init = Cast<AInitLevel>(UGameplayStatics::GetGameMode(World)))
-		{
-			Init->StopIntroCutsceneAndReturnToGame();
-			return;
-		}
-	}
-	RemoveFromParent();
+	YesButtonClicked.Broadcast();
 }
 
 void USkipTutorialWidget::OnNoClicked()
 {
 	bSkipedTutorial = false;
-	if (UWorld* World = GetWorld())
-	{
-		if (AInitLevel* Init = Cast<AInitLevel>(UGameplayStatics::GetGameMode(World)))
-		{
-			Init->StopIntroCutsceneAndReturnToGame();
-			return;
-		}
-	}
-	RemoveFromParent();
+	NoButtonClicked.Broadcast();
 }
 
 void USkipTutorialWidget::OnYesButtonHovered()

@@ -28,7 +28,14 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void NotifyActorOnClicked(FKey ButtonPressed) override;
 
-	
+	FTimerHandle LiftDesendTimerHandle;
+
+	void SetBeginText();
+
+	void SetFirstPromptText();
+
+	UPROPERTY(EditAnywhere)
+	float DesendTime = 10.f;
 	
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* ScreenMesh;

@@ -18,14 +18,12 @@ class CRANKIT_API USDTutorialWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	
 	void OnDismiss();
-
-	virtual FReply NativeOnPreviewMouseButtonDown(
-		const FGeometry& InGeometry,
-		const FPointerEvent& InMouseEvent) override;
 
 	UPROPERTY(BlueprintAssignable, Category = "Tutorial")
 	FOnTutorialDismissed OnTutorialDismissed;
 
+	virtual FReply NativeOnPreviewMouseButtonDown(
+		const FGeometry& InGeometry,
+		const FPointerEvent& InMouseEvent) override;
 };

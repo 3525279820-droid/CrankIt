@@ -11,6 +11,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "MineConsole.h"
 #include "ComputerScreenActor.h"
+#include "KeyPromptWidgetBase.h"
 #include "SubtitleWidget.h"
 #include "SDTutorialWidget.h"
 #include "LevelSequenceActor.h"
@@ -93,6 +94,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Tutorial")
 	TSubclassOf<USDTutorialWidget> TutorialWidgetClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Tutorial")
+	TSubclassOf<UKeyPromptWidgetBase> KeyPromptWidgetClass;
+
+	UPROPERTY()
+	UKeyPromptWidgetBase* KeyPromptWidget = nullptr;
 	
 	UPROPERTY(EditAnywhere, Category= "Cinematic")
 	TObjectPtr<ULevelSequence> CinematicSequence;
