@@ -5,10 +5,38 @@
 #include "PlayerCamera.h"
 #include "ComputerScreenActor.h"
 #include "KeyPromptWidgetBase.h"
+#include "Tunnel.h"
 #include "LevelSequencePlayer.h"
 #include "MovieSceneSequencePlaybackSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "EngineUtils.h"
+
+namespace
+{
+	ALevelSequenceActor* FindLevelSequenceActorByTag(UWorld* World, FName ActorTag)
+	{
+		if (!World || ActorTag.IsNone())
+		{
+			return nullptr;
+		}
+
+		for (TActorIterator<ALevelSequenceActor> It(World); It; ++It)
+		{
+			ALevelSequenceActor* const SeqActor = *It;
+			if (SeqActor && SeqActor->ActorHasTag(ActorTag))
+			{
+				return SeqActor;
+			}
+		}
+		return nullptr;
+	}
+}
+
+AInitLevel::AInitLevel()
+{
+	PrimaryActorTick.bCanEverTick = true;
+}
 
 void AInitLevel::PlaySubtitleTrack(
 	const TArray<FInitLevelSubtitleLine>& Lines,
@@ -55,10 +83,54 @@ void AInitLevel::PlaySubtitleTrack(
 		false);
 }
 
+void AInitLevel::DisableAllInput()
+{
+	if (!Cam || !PC)
+	{
+		return;
+	}
+	PC->SetInputMode(FInputModeGameOnly());
+	PC->bShowMouseCursor = false;
+	Cam->bIsInCinematic = true;
+	APlayerCamera::SetExplorationMappingContextEnabled(PC, false);
+	
+
+	PC->bEnableClickEvents = false;
+	PC->bEnableMouseOverEvents = false;
+
+	PC->SetCinematicMode(
+		true,
+		true,
+		false,
+		true,
+		true
+	);
+}	
+
+void AInitLevel::EnableAllInput()
+{
+	if (!Cam || !PC)
+	{
+		return;
+	}
+	PC->SetInputMode(FInputModeGameAndUI());
+	PC->bShowMouseCursor = true;
+	Cam->bIsInCinematic = false;
+	APlayerCamera::SetExplorationMappingContextEnabled(PC, true);
+	APlayerCamera::ApplyExplorationInputMode(PC);
+
+	PC->SetCinematicMode(
+		false,
+		false,
+		false,
+		false,
+		false
+	);
+}
+
 void AInitLevel::BeginPlay()
 {
 	Super::BeginPlay();
-
 	if (UWorld* World = GetWorld())
 	{
 		PC = World->GetFirstPlayerController();
@@ -67,6 +139,8 @@ void AInitLevel::BeginPlay()
 			Cam = Cast<APlayerCamera>(PC->GetPawn());
 		}
 	}
+	
+	DisableAllInput();
 
 	// 无语音文件时：用世界时间轴跑几条测试字幕（上面已 AddToPlayerScreen；纯 C++ Widget 会自动建底栏 TextBlock）。
 	const TArray<FInitLevelSubtitleLine> IntroLines = {
@@ -74,6 +148,24 @@ void AInitLevel::BeginPlay()
 		{2.5f, 5.f, TEXT("【字幕测试】第二句（2.5~5 秒）")},
 	};
 	PlaySubtitleTrack(IntroLines, [this]() {});
+
+	GetWorldTimerManager().SetTimer(
+		DesendTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			ATunnel* Tunnel = Cast<ATunnel>(
+				UGameplayStatics::GetActorOfClass(GetWorld(), ATunnel::StaticClass()));
+
+			if (Tunnel)
+			{
+				Tunnel->bShouldMove = false;
+				PlaySequence(IntroSequenceActorTag, false);
+			}
+		}),
+		DesendTime,
+		false
+	);
+	
 }
 
 void AInitLevel::OnTutorialClosed()
@@ -125,13 +217,19 @@ void AInitLevel::ShowKeyPrompt()
 	APlayerCamera::ApplyExplorationInputMode(PC);
 }
 
-void AInitLevel::PlaySequence()
+void AInitLevel::PlaySequence(FName SequenceTag, bool bLoop)
 {
 	UWorld* World = GetWorld();
 	if (!World || !PC)
 	{
 		return;
 	}
+	if (SequenceTag.IsNone())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlaySequence: SequenceTag is None."));
+		return;
+	}
+
 	if (Cam)
 	{
 		Cam->bIsInCinematic = true;
@@ -144,37 +242,61 @@ void AInitLevel::PlaySequence()
 		true,
 		true
 	);
-	ALevelSequenceActor* LevelSequenceActor = Cast<ALevelSequenceActor>(UGameplayStatics::GetActorOfClass(World, ALevelSequenceActor::StaticClass()));
-	if (LevelSequenceActor)
+
+	ALevelSequenceActor* const LevelSequenceActor = FindLevelSequenceActorByTag(World, SequenceTag);
+	if (!LevelSequenceActor)
 	{
-		if (ULevelSequencePlayer* Player = LevelSequenceActor->GetSequencePlayer())
-		{
-			BoundIntroSequencePlayer = Player;
-			FMovieSceneSequencePlaybackSettings Settings = LevelSequenceActor->PlaybackSettings;
-			Settings.LoopCount.Value = -1;
-			Player->SetPlaybackSettings(Settings);
-
-			Player->OnFinished.RemoveDynamic(this, &AInitLevel::OnLevelSequenceFinished);
-			Player->OnFinished.AddDynamic(this, &AInitLevel::OnLevelSequenceFinished);
-			Player->Play();
-
-			if (Cam && Cam->SktWidgetClass)
-			{
-				Skt = CreateWidget<USkipTutorialWidget>(PC, Cam->SktWidgetClass);
-				if (Skt)
-				{
-					Skt->AddToPlayerScreen(100);
-					Skt->YesButtonClicked.AddDynamic(this, &AInitLevel::TutorialSkipped);
-					Skt->NoButtonClicked.AddDynamic(this, &AInitLevel::TutorialNotSkipped);
-					APlayerCamera::ApplyExplorationInputMode(PC);
-				}
-			}
-		}
+		UE_LOG(LogTemp, Warning, TEXT("PlaySequence: LevelSequenceActor with tag '%s' not found."), *SequenceTag.ToString());
+		return;
 	}
+
+	if (ULevelSequencePlayer* Player = LevelSequenceActor->GetSequencePlayer())
+	{
+		BoundIntroSequencePlayer = Player;
+
+		Player->Stop();
+		Player->OnFinished.RemoveDynamic(this, &AInitLevel::OnLevelSequenceFinished);
+		Player->OnFinished.AddDynamic(this, &AInitLevel::OnLevelSequenceFinished);
+
+		Player->PlayLooping(bLoop ? -1 : 0);
+	}
+}
+
+void AInitLevel::SetFirstComputerScreenText()
+{
+	UWorld* World = GetWorld();
+
 	AComputerScreenActor* ComputerScreen = Cast<AComputerScreenActor>(UGameplayStatics::GetActorOfClass(World, AComputerScreenActor::StaticClass()));
 	if (ComputerScreen)
 	{
 		ComputerScreen->SetFirstPromptText();
+	}
+}
+
+void AInitLevel::ShowSkipTutorial()
+{
+	if (Cam)
+	{
+		Cam->bIsInCinematic = true;
+		APlayerCamera::SetExplorationMappingContextEnabled(PC, false);
+	}
+	PC->SetCinematicMode(
+		true,
+		true,
+		false,
+		true,
+		true
+	);
+	if (Cam && Cam->SktWidgetClass)
+	{
+		Skt = CreateWidget<USkipTutorialWidget>(PC, Cam->SktWidgetClass);
+		if (Skt)
+		{
+			Skt->AddToPlayerScreen(100);
+			Skt->YesButtonClicked.AddDynamic(this, &AInitLevel::TutorialSkipped);
+			Skt->NoButtonClicked.AddDynamic(this, &AInitLevel::TutorialNotSkipped);
+			APlayerCamera::ApplyExplorationInputMode(PC);
+		}
 	}
 }
 
@@ -210,14 +332,11 @@ void AInitLevel::StopIntroCutsceneAndReturnToGame()
 	if (ULevelSequencePlayer* Player = BoundIntroSequencePlayer.Get())
 	{
 		Player->OnFinished.RemoveDynamic(this, &AInitLevel::OnLevelSequenceFinished);
-		if (UWorld* World = GetWorld())
+		if (ALevelSequenceActor* LSA = Cast<ALevelSequenceActor>(Player->GetOuter()))
 		{
-			if (ALevelSequenceActor* LSA = Cast<ALevelSequenceActor>(UGameplayStatics::GetActorOfClass(World, ALevelSequenceActor::StaticClass())))
-			{
-				FMovieSceneSequencePlaybackSettings Settings = LSA->PlaybackSettings;
-				Settings.LoopCount.Value = 0;
-				Player->SetPlaybackSettings(Settings);
-			}
+			FMovieSceneSequencePlaybackSettings Settings = LSA->PlaybackSettings;
+			Settings.LoopCount.Value = 0;
+			Player->SetPlaybackSettings(Settings);
 		}
 		Player->Stop();
 	}
@@ -227,6 +346,7 @@ void AInitLevel::StopIntroCutsceneAndReturnToGame()
 
 void AInitLevel::OnLevelSequenceFinished()
 {
+	EnableAllInput();
 	if (ULevelSequencePlayer* Player = BoundIntroSequencePlayer.Get())
 	{
 		Player->OnFinished.RemoveDynamic(this, &AInitLevel::OnLevelSequenceFinished);
@@ -283,4 +403,21 @@ void AInitLevel::TutorialNotSkipped()
 		}),
 		 [this]() {ShowTutorial();}
 		);
+}
+
+void AInitLevel::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (!Cam || bSkipTutorialFlowStarted)
+	{
+		return;
+	}
+
+	if (Cam->CurrentDirectionIndex == 3)
+	{
+		bSkipTutorialFlowStarted = true;
+		PlaySequence(TEXT("SkipTutorialSequencer"), true);
+		ShowSkipTutorial();
+	}
 }

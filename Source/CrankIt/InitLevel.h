@@ -8,6 +8,7 @@
 #include "LevelSequenceActor.h"
 #include "SDTutorialWidget.h"
 #include "SkipTutorialWidget.h"
+#include "Tunnel.h"
 #include "InitLevel.generated.h"
 
 class ULevelSequencePlayer;
@@ -29,6 +30,10 @@ UCLASS()
 class CRANKIT_API AInitLevel : public AGameModeBase
 {
 	GENERATED_BODY()
+
+public:
+	AInitLevel();
+
 private:
 	virtual void BeginPlay() override;
 
@@ -48,6 +53,9 @@ private:
 
 	void CleanupIntroUIAndRestoreGameplay();
 
+	void DisableAllInput();
+	void EnableAllInput();
+
 	TWeakObjectPtr<ULevelSequencePlayer> BoundIntroSequencePlayer;
 
 	UPROPERTY()
@@ -62,6 +70,11 @@ private:
 	UPROPERTY()
 	USDTutorialWidget* TutorialWidget = nullptr;
 
+	bool bSkipTutorialFlowStarted = false;
+
+	virtual void Tick(float DeltaTime) override;
+
+	
 public:
 	UFUNCTION()
 	void OnTutorialClosed();
@@ -73,11 +86,26 @@ public:
 	UFUNCTION()
 	void TutorialNotSkipped();
 	
-	void PlaySequence();
+	/** 按关卡中 Level Sequence Actor 的 Tag 播放过场；bLoop 为 true 时无限循环。 */
+	void PlaySequence(FName SequenceTag, bool bLoop);
+	
+	void SetFirstComputerScreenText();
 
 	void ShowTutorial();
 
+	void ShowSkipTutorial();
+
+
 	/** 跳过教程 / 继续教程：停过场、关 UI、恢复操作与 EI（当前两者行为一致，后续可再分支）。 */
 	void StopIntroCutsceneAndReturnToGame();
+
+	FTimerHandle DesendTimer;
+
+	UPROPERTY(EditAnywhere)
+	float DesendTime = 10.f;
+
+	/** BeginPlay 定时器触发的默认过场 Actor Tag。 */
+	UPROPERTY(EditAnywhere, Category = "Cinematic")
+	FName IntroSequenceActorTag;
 
 };

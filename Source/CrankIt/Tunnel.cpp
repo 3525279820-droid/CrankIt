@@ -43,9 +43,11 @@ void ATunnel::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	Move(DeltaTime, Tunnel_1);
-	Move(DeltaTime, Tunnel_2);
-
+	if(bShouldMove)
+	{
+		Move(DeltaTime, Tunnel_1);
+		Move(DeltaTime, Tunnel_2);
+	}
 }
 
 void ATunnel::Move(float DeltaTime, UStaticMeshComponent* MovePart)
@@ -61,7 +63,7 @@ void ATunnel::Move(float DeltaTime, UStaticMeshComponent* MovePart)
 		NewLocation = FVector(CurrentLocation.X, CurrentLocation.Y, NewZ);
 		MovePart->SetWorldLocation(NewLocation);
 		// MovePart->AddWorldOffset(FVector(0, 0, 10.f));
-		UE_LOG(LogTemp, Display, TEXT("X: %f, Y: %f, Z: %f"), T2Location.X, T2Location.Y, T2Location.Z)
+		// UE_LOG(LogTemp, Display, TEXT("X: %f, Y: %f, Z: %f"), T2Location.X, T2Location.Y, T2Location.Z)
 
 	}
 	else

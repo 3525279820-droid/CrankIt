@@ -274,7 +274,19 @@ void APlayerCamera::UpdateBatteryPickupMotion(float DeltaTime)
 
 void APlayerCamera::TurnInput(const FInputActionValue& value)
 {
+	if (bIsInCinematic)
+	{
+		return;
+	}
 	const float InputValue = value.Get<float>();
+	if(InputValue > 0)
+	{
+		UpdateCurrentDirection(true);
+	}
+	else
+	{
+		UpdateCurrentDirection(false);
+	}
 	FRotator TargetRotation = FRotator::ZeroRotator;
 
 	DeltaRotation.Yaw = InputValue * 90.f;
@@ -297,6 +309,32 @@ void APlayerCamera::ExitScreenInput(const FInputActionValue& value)
 
 void APlayerCamera::PickBattery()
 {
+}
+
+void APlayerCamera::UpdateCurrentDirection(bool bIsLeft)
+{
+	if(bIsLeft)
+	{
+		if(CurrentDirectionIndex + 1 >= Directions.Num())
+		{
+			CurrentDirectionIndex = 0;
+		}
+		else
+		{
+			CurrentDirectionIndex++;
+		}
+	}
+	else
+	{
+		if(CurrentDirectionIndex - 1 < 0)
+		{
+			CurrentDirectionIndex = Directions.Num() - 1;
+		}
+		else
+		{
+			CurrentDirectionIndex--;
+		}
+	}
 }
 
 void APlayerCamera::MoveSoundDetectorHoldPointUp(float DeltaTime)

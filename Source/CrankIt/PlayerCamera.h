@@ -123,6 +123,13 @@ public:
 
 	bool bIsInCinematic = false;
 
+	int32 CurrentDirectionIndex = 2;
+
+	UPROPERTY(EditAnywhere, Category="PlayerCamera")
+	TArray<FString> Directions = {"North", "East", "South", "West"};
+
+	void UpdateCurrentDirection(bool bIsLeft);
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

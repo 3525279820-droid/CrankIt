@@ -38,6 +38,9 @@ public:
 	FVector TargetLocation;
 	FVector startLocation;
 	FVector NewLocation;
+
+	UPROPERTY(EditAnywhere)
+	bool bShouldMove = true;
 	
 
 protected:

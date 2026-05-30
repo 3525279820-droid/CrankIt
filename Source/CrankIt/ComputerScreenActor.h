@@ -35,7 +35,7 @@ public:
 	void SetFirstPromptText();
 
 	UPROPERTY(EditAnywhere)
-	float DesendTime = 10.f;
+	float DesendTime = 3.f;
 	
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* ScreenMesh;

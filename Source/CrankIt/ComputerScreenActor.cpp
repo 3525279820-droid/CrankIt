@@ -78,17 +78,22 @@ void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)
 {
 	Super::NotifyActorOnClicked(ButtonPressed);
 
-	if (PC && FixedCamera)
+	APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn());
+
+	if (Cam)
 	{
-		// 保存原始视角
-		APawn* Pawn = PC->GetPawn();
-		APlayerCamera* PCamera = Cast<APlayerCamera>(Pawn);
-		if(PCamera)
+		if (PC && FixedCamera && !Cam->bIsInCinematic)
 		{
-			PCamera->OriginalViewTarget = PC->GetViewTarget();
-		}
+			// 保存原始视角
+			APawn* Pawn = PC->GetPawn();
+			APlayerCamera* PCamera = Cast<APlayerCamera>(Pawn);
+			if(PCamera)
+			{
+				PCamera->OriginalViewTarget = PC->GetViewTarget();
+			}
 		
-		PC->SetViewTargetWithBlend(FixedCamera, .5f,VTBlend_Cubic); // 平滑切换
+			PC->SetViewTargetWithBlend(FixedCamera, .5f,VTBlend_Cubic); // 平滑切换
+		}
 	}
 }
 
