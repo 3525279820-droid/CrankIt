@@ -5,6 +5,9 @@
 
 #include "EMPLight.h"
 #include "EngineUtils.h"
+#include "PlayerCamera.h"
+#include "MineConsole.h"
+#include "GameFramework/PlayerController.h"
 
 void ULightTrigger::BeginPlay()
 {
@@ -65,6 +68,20 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 
 			if (Battery->ChargeProgress == 3)
 			{
+				if (UWorld* World = GetWorld())
+				{
+					if (APlayerController* PC = World->GetFirstPlayerController())
+					{
+						if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
+						{
+							if (Cam->CurrentDirectionIndex == 3 && Cam->MineConsole)
+							{
+								Cam->MineConsole->TryShowLightTutorialSubtitle();
+							}
+						}
+					}
+				}
+			
 				if (EMPLight) EMPLight->LightIntensity = 25000.f;
 				Battery->ChargeProgress = 0;
 				Battery->ResetChargeProgress();

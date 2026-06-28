@@ -5,8 +5,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Components/AudioComponent.h"
-#include "PlayerCamera.h"
 #include "Monster.generated.h"
+
+class APlayerCamera;
 
 UCLASS()
 class CRANKIT_API AMonster : public AActor
@@ -60,7 +61,11 @@ protected:
 	// 前进逻辑
 	void AdvanceTowardsPlayer();
 
+	bool bIsSpawned = false;
+
 public:
+	bool bSpawnable = false;
+
 	// 怪物当前方向（东、西、北）
 	UPROPERTY(VisibleAnywhere, Category="Monster")
 	FString CurrentDirection;
@@ -72,5 +77,7 @@ public:
 	void Repel();
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	bool bTimerStarted = false;
 
 };

@@ -5,10 +5,35 @@
 
 #include "PlayerCamera.h"
 #include "Camera/CameraActor.h"
-#include "ColorManagement/TransferFunctions.h"
 #include "Kismet/GameplayStatics.h"
 #include "Framework/Application/SlateApplication.h"
 #include "GameFramework/PlayerController.h"
+#include "CrankItNarrativeSubsystem.h"
+#include "CrankItNarrativeIds.h"
+
+namespace
+{
+	// 将 Data Asset 中的终端输出块逐行写入 Widget
+	void AppendTerminalBlock(UTerminalWidget* Widget, UWorld* World, FName BlockId)
+	{
+		if (!Widget || !World)
+		{
+			return;
+		}
+
+		if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
+		{
+			TArray<FString> Lines;
+			if (Narrative->GetTerminalOutputLines(BlockId, Lines))
+			{
+				for (const FString& Line : Lines)
+				{
+					Widget->AddNewLine(Line);
+				}
+			}
+		}
+	}
+}
 
 // Sets default values
 AComputerScreenActor::AComputerScreenActor()
@@ -46,8 +71,11 @@ void AComputerScreenActor::BeginPlay()
 	// 切换摄像机
 	PC = GetWorld()->GetFirstPlayerController();
 
+	AppendTerminalBlock(TerminalWidget, GetWorld(), CrankItNarrative::Terminal::ComputerScreen_Startup);
+	/* LEGACY ComputerScreen_Startup
 	TerminalWidget->AddNewLine("Lift Operational ");
 	TerminalWidget->AddNewLine("descending please wait ");
+	*/
 
 	GetWorldTimerManager().SetTimer(
 		LiftDesendTimerHandle,
@@ -60,16 +88,22 @@ void AComputerScreenActor::BeginPlay()
 
 void AComputerScreenActor::SetFirstPromptText()
 {
+	AppendTerminalBlock(TerminalWidget, GetWorld(), CrankItNarrative::Terminal::ComputerScreen_FirstPrompt);
+	/* LEGACY ComputerScreen_FirstPrompt
 	TerminalWidget->AddNewLine("NCAUGHT EXCEPTION");
 	TerminalWidget->AddNewLine("<invalid mem address>");
 	TerminalWidget->AddNewLine("SYSTEM CORRUPTION has occurred");
 	TerminalWidget->AddNewLine("a REBOOT is required.");
+	*/
 }
 
 void AComputerScreenActor::SetBeginText()
 {
+	AppendTerminalBlock(TerminalWidget, GetWorld(), CrankItNarrative::Terminal::ComputerScreen_Destination);
+	/* LEGACY ComputerScreen_Destination
 	TerminalWidget->AddNewLine("you have reached your destination. ");
 	TerminalWidget->AddNewLine("have a nice day. ");
+	*/
 }
 
 
@@ -80,7 +114,7 @@ void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)
 
 	APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn());
 
-	if (Cam)
+	if (Cam && bIsClickable)
 	{
 		if (PC && FixedCamera && !Cam->bIsInCinematic)
 		{

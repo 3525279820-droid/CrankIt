@@ -25,6 +25,22 @@
 class UAudioComponent;
 class USoundWave;
 
+/** 单条字幕输入（{Start, End, Text}），供 PlaySubtitleTrack 转为 FCrankItSubtitleCue。 */
+USTRUCT(BlueprintType)
+struct CRANKIT_API FCrankItSubtitleLine
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Subtitle")
+	float StartTimeSeconds = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Subtitle")
+	float EndTimeSeconds = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Subtitle")
+	FString Text;
+};
+
 /** 单条字幕：时间与文本；区间为 [Start, End)（End 秒那一瞬起不再显示本条）。不可命名 FSubtitleCue，与引擎类型冲突。 */
 USTRUCT(BlueprintType)
 struct CRANKIT_API FCrankItSubtitleCue
@@ -66,6 +82,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Subtitle")
 	void StartSubtitleTrackWithWorldTime(const TArray<FCrankItSubtitleCue>& Cues);
 
+	/**
+	 * 无音频：按世界时间轴播放一组字幕；轨结束后可选执行 OnComplete（C++ 专用）。
+	 * Lines 为空时立即调用 OnComplete。
+	 */
+	void PlaySubtitleTrack(
+		const TArray<FCrankItSubtitleLine>& Lines,
+		TFunction<void()> OnComplete = TFunction<void()>());
+
 	UFUNCTION(BlueprintCallable, Category = "Subtitle")
 	void StopSubtitles();
 
@@ -98,6 +122,9 @@ protected:
 	/** 遍历查找当前时间落入的区间，然后返回Cue的索引。 */
 	int32 FindCueIndexForTime(float T) const;
 
+	/** 轨自然结束或定时器触发：清理字幕并执行 PlaySubtitleTrack 传入的 OnComplete（仅一次）。 */
+	void FinishSubtitleTrack();
+
 	TArray<FCrankItSubtitleCue> ActiveCues;
 	/** 弱引用：音频 Actor 销毁时不拖住对象，Tick 里需判有效性。 */
 	TWeakObjectPtr<UAudioComponent> SyncAudioWeak;
@@ -110,4 +137,9 @@ protected:
 
 	/** 由 OnAudioPlaybackPercentNative 更新，供 Tick 换算为秒。 */
 	mutable std::atomic<float> CachedPlaybackPercent{0.f};
+
+	FTimerHandle TrackCompleteTimer;
+
+	/** PlaySubtitleTrack 注册的结束回调；StopSubtitles 会取消（不调用）。 */
+	TFunction<void()> PendingTrackOnComplete;
 };

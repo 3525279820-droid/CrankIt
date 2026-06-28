@@ -56,4 +56,6 @@ public:
 	// 记录上一帧是否处于电脑屏幕视角，用于检测状态切换
 	bool bWasInComputerView = false;
 
+	bool bIsClickable = true;
+
 };

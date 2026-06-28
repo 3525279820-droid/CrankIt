@@ -2,6 +2,7 @@
 
 #include "SubtitleSubsystem.h"
 #include "Blueprint/WidgetTree.h"
+#include "Components/Image.h"
 #include "Components/Overlay.h"
 #include "Components/OverlaySlot.h"
 #include "Components/TextBlock.h"
@@ -42,6 +43,8 @@ void USubtitleWidget::NativeConstruct()
 		RW->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 	}
 
+	ApplySubtitleVisibility(false);
+
 	// World 子系统随关卡存在；Widget 进树后再绑定，保证 GetWorld() 有效。
 	if (UWorld* World = GetWorld())
 	{
@@ -64,14 +67,25 @@ void USubtitleWidget::NativeDestruct()
 	Super::NativeDestruct();
 }
 
+void USubtitleWidget::ApplySubtitleVisibility(bool bShow)
+{
+	const ESlateVisibility TextVis = bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed;
+	if (SubtitleText)
+	{
+		SubtitleText->SetVisibility(TextVis);
+	}
+	if (SubtitleBackground)
+	{
+		SubtitleBackground->SetVisibility(TextVis);
+	}
+}
+
 void USubtitleWidget::HandleSubtitleLineChanged(FText InSubtitleLine)
 {
-	if (!SubtitleText)
+	if (SubtitleText)
 	{
-		return;
+		SubtitleText->SetText(InSubtitleLine);
 	}
-	SubtitleText->SetText(InSubtitleLine);
-	// 无字时 Collapsed，避免占位块挡点击；有字时 HitTestInvisible，不拦截下层全屏点击（可按项目改）。
 	const bool bShow = !InSubtitleLine.IsEmpty();
-	SubtitleText->SetVisibility(bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	ApplySubtitleVisibility(bShow);
 }

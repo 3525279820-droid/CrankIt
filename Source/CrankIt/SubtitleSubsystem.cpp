@@ -20,8 +20,65 @@ void USubtitleSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void USubtitleSubsystem::Deinitialize()
 {
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(TrackCompleteTimer);
+	}
 	StopSubtitles();
 	Super::Deinitialize();
+}
+
+void USubtitleSubsystem::PlaySubtitleTrack(
+	const TArray<FCrankItSubtitleLine>& Lines,
+	TFunction<void()> OnComplete)
+{
+	UWorld* World = GetWorld();
+	if (!World || Lines.Num() == 0)
+	{
+		if (OnComplete)
+		{
+			OnComplete();
+		}
+		return;
+	}
+
+	TArray<FCrankItSubtitleCue> Cues;
+	Cues.Reserve(Lines.Num());
+	for (const FCrankItSubtitleLine& Line : Lines)
+	{
+		FCrankItSubtitleCue Cue;
+		Cue.StartTimeSeconds = Line.StartTimeSeconds;
+		Cue.EndTimeSeconds = Line.EndTimeSeconds;
+		Cue.Text = FText::FromString(Line.Text);
+		Cues.Add(Cue);
+	}
+	StartSubtitleTrackWithWorldTime(Cues);
+
+	PendingTrackOnComplete = MoveTemp(OnComplete);
+
+	World->GetTimerManager().ClearTimer(TrackCompleteTimer);
+	if (!PendingTrackOnComplete)
+	{
+		return;
+	}
+
+	const float TrackEnd = Cues.Last().EndTimeSeconds + 0.05f;
+	World->GetTimerManager().SetTimer(
+		TrackCompleteTimer,
+		FTimerDelegate::CreateUObject(this, &USubtitleSubsystem::FinishSubtitleTrack),
+		TrackEnd,
+		false);
+}
+
+void USubtitleSubsystem::FinishSubtitleTrack()
+{
+	TFunction<void()> Callback = MoveTemp(PendingTrackOnComplete);
+	PendingTrackOnComplete = nullptr;
+	StopSubtitles();
+	if (Callback)
+	{
+		Callback();
+	}
 }
 
 ETickableTickType USubtitleSubsystem::GetTickableTickType() const
@@ -108,6 +165,11 @@ void USubtitleSubsystem::StartSubtitleTrackWithWorldTime(const TArray<FCrankItSu
 
 void USubtitleSubsystem::StopSubtitles()
 {
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(TrackCompleteTimer);
+	}
+	PendingTrackOnComplete = nullptr;
 	if (UAudioComponent* A = SyncAudioWeak.Get())
 	{
 		A->OnAudioPlaybackPercentNative.RemoveAll(this);
@@ -163,7 +225,7 @@ void USubtitleSubsystem::UpdateForTime(float PlaybackSeconds)
 	// 略大于 LastEnd 再收尾：避免浮点与帧边界导致最后一帧反复进出「已结束」状态。
 	if (PlaybackSeconds >= LastEnd + 0.05f)
 	{
-		StopSubtitles();
+		FinishSubtitleTrack();
 	}
 }
 

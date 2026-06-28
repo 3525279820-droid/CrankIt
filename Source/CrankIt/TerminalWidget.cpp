@@ -1,933 +1,955 @@
 #include "TerminalWidget.h"
 
-#include <string>
-
 #include "Battery.h"
 #include "BatteryPowerChecker.h"
 #include "Components/CanvasPanelSlot.h"
-#include "Components/EditableTextBox.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
 #include "PlayerCamera.h"
-#include "Sound/SoundWave.h"
 #include "CalibrationWidget.h"
 #include "ClassificationGameWidget.h"
 #include "DoubleAutoDoor.h"
+#include "CrankItNarrativeSubsystem.h"
+#include "CrankItNarrativeIds.h"
 
 void UTerminalWidget::GenerateTarget()
 {
-    
-    for(int32 i = 0 ;i< BinaryLength; ++i)
-    {
-        bool b = FMath::RandBool();
-        FString s = b ? "1" : "0";
-        NewTarget += s;
-    }
-    
+	NewTarget.Empty();
+	for (int32 i = 0; i < BinaryLength; ++i)
+	{
+		const bool b = FMath::RandBool();
+		NewTarget += b ? TEXT("1") : TEXT("0");
+	}
 }
 
 void UTerminalWidget::ResetRound()
 {
-    GuessHistory.Empty();
-    CurrentGuessCount = 0;
-    GenerateTarget();
+	GuessHistory.Empty();
+	CurrentGuessCount = 0;
+	GenerateTarget();
+}
+
+// 从 Data Asset 读取终端输出块并追加到显示队列
+void UTerminalWidget::AppendTerminalOutputBlock(FName BlockId)
+{
+	if (!Display)
+	{
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
+		{
+			TArray<FString> Lines;
+			// 从 Data Asset 按 BlockId 取文案，压入显示队列
+			if (Narrative->GetTerminalOutputLines(BlockId, Lines))
+			{
+				Display->AppendPendingLines(Lines);
+			}
+		}
+	}
+}
+
+// 从 TerminalCommandData 加载命令顺序与 CommandTextMap
+void UTerminalWidget::LoadTerminalCommandDataFromAsset()
+{
+	CommandSequence.Empty();
+	CommandTextMap.Empty();
+	NextCommandIndex = 0;
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
+		{
+			if (Narrative->ApplyTerminalCommandData(CommandSequence, CommandTextMap))
+			{
+				return;
+			}
+		}
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("TerminalWidget: 未加载 TerminalCommandData，请在 GameMode 上指定 DA_CrankItTerminalCommands。"));
+}
+
+// 注册各命令的行为逻辑（副作用）；文案由 Data Asset / AppendTerminalOutputBlock 提供
+void UTerminalWidget::SetupCommandActions()
+{
+	CommandActionMap.Empty();
+
+	CommandActionMap.Add(TEXT("O"), [this]()
+	{
+		if (ADoubleAutoDoor* Door = Cast<ADoubleAutoDoor>(UGameplayStatics::GetActorOfClass(GetWorld(), ADoubleAutoDoor::StaticClass())))
+		{
+			Door->DoorOpened();
+		}
+	});
+	CommandActionMap.Add(TEXT("CLEAR"), [this]()
+	{
+		if (Display)
+		{
+			Display->ClearTerminal();
+		}
+	});
+
+	CommandActionMap.Add(TEXT("REBOOT"), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		if (const TArray<FString>* Lines = CommandTextMap.Find(PendingCommandKey))
+		{
+			Display->AppendPendingLines(*Lines);
+		}
+
+		Display->StartDisplayingLinesProcedure(3.f, [this]()
+		{
+			// REBOOT 动画结束后：启用怪物生成与顶灯闪烁
+			if (AMonster* Monster = Cast<AMonster>(UGameplayStatics::GetActorOfClass(GetWorld(), AMonster::StaticClass())))
+			{
+				Monster->bSpawnable = true;
+			}
+			if (AFlashTopLight* FlashLight = Cast<AFlashTopLight>(UGameplayStatics::GetActorOfClass(GetWorld(), AFlashTopLight::StaticClass())))
+			{
+				FlashLight->SetIntensity(1000.f);
+				FlashLight->LightStartFlash(.05f, 5);
+			}
+		});
+	});
+
+	CommandActionMap.Add(TEXT("SCAN AND REPAIR"), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		if (const TArray<FString>* Lines = CommandTextMap.Find(PendingCommandKey))
+		{
+			Display->AppendPendingLines(*Lines);
+		}
+		Display->StartDisplayingLines();
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::ScanRepair_Finished);
+		Display->StartDisplayingLinesProcedure(1.f);
+	});
+
+	CommandActionMap.Add(TEXT("BOORDLE"), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		BinaryGuessActivated = true;
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Boordle_Started);
+		Display->StartDisplayingLines();
+	});
+
+	CommandActionMap.Add(TEXT(""), [this]()
+	{
+		EnterClassificationGame();
+	});
+
+	CommandActionMap.Add(TEXT("CALIBRATE"), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Calibrate_Started);
+		Display->StartDisplayingLines();
+		EnterCalibrationGame();
+	});
+
+	CommandActionMap.Add(TEXT("UPDATE SYSTEM"), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::UpdateSystem_Warning);
+		Display->StartDisplayingLinesProcedure(5.f);
+	});
+
+	CommandActionMap.Add(TEXT("LIFT QUARANTINE"), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::LiftQuarantine_Warning);
+		Display->StartDisplayingLinesProcedure(5.f);
+	});
+
+	CommandActionMap.Add(TEXT("CALIBRATE NORTH ENTRY DOOR"), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Unlocking);
+		Display->StartDisplayingLinesProcedure(15.f);
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Unlocked);
+		Display->StartDisplayingLines();
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_LowAux);
+		Display->StartDisplayingLinesProcedure(5.f);
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Restricted);
+		Display->StartDisplayingLines();
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Countdown30);
+		Display->StartDisplayingLinesProcedure(30.f);
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_UnlockedReady);
+		Display->StartDisplayingLinesProcedure(30.f);
+	});
+
+	CommandActionMap.Add(TEXT(""), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		TArray<FString> GodLines;
+		if (UWorld* World = GetWorld())
+		{
+			if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
+			{
+				Narrative->GetTerminalOutputLines(CrankItNarrative::Terminal::GodIsDead, GodLines);
+			}
+		}
+		const int32 LineCount = GodLines.Num() > 0 ? GodLines.Num() : 14;
+		for (int32 i = 0; i < LineCount; ++i)
+		{
+			if (GodLines.IsValidIndex(i))
+			{
+				Display->AddPendingLine(GodLines[i]);
+			}
+			else
+			{
+				// Data Asset 未配置时 fallback
+				Display->AddPendingLine(TEXT("GOD IS DEAD"));
+			}
+			Display->StartDisplayingLinesProcedure(1.f);
+		}
+	});
+
+	CommandActionMap.Add(TEXT(""), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::LiftOperational);
+		Display->StartDisplayingLines();
+	});
+
+	CommandActionMap.Add(TEXT("ASCEND"), [this]()
+	{
+		if (!Display)
+		{
+			return;
+		}
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Ascend_GameOver);
+		Display->StartDisplayingLines();
+	});
 }
 
 void UTerminalWidget::AddToGuessHistory(const FString& Guess)
 {
-    GuessHistory.Add(Guess);
-    CurrentGuessCount++;
+	GuessHistory.Add(Guess);
+	CurrentGuessCount++;
 
-    int32 matchCount = 0;
-    for(int32 i = 0; i < BinaryLength; ++i)
-    {
-        if(Guess[i] == NewTarget[i])
-        {
-            matchCount++;
-        }
-    }
-    PendingLines.Add(FString::Printf(TEXT("Guess %d: %s  (matching bits: %d)"), CurrentGuessCount, *Guess, matchCount));
-    if (matchCount == BinaryLength)
-    {
-        BinaryGuessActivated = false;
-        PendingLines.Add(TEXT(""));
-        PendingLines.Add(TEXT("Fault Successfully Fixed."));
-        PendingLines.Add(TEXT(""));
-        PendingLines.Add(TEXT("Error!"));
-        PendingLines.Add(TEXT("Unauthorised use of BOORDLE has been detected"));
-        PendingLines.Add(TEXT("please verify you are human by typing the following:"));
-        PendingLines.Add(TEXT("\"I AM A HUMAN BEING\""));
+	int32 MatchCount = 0;
+	for (int32 i = 0; i < BinaryLength; ++i)
+	{
+		if (Guess[i] == NewTarget[i])
+		{
+			MatchCount++;
+		}
+	}
 
-        StartDisplayingLines();
-    }
-    if (CurrentGuessCount >= MaxGuesses)
-    {
-        PendingLines.Add(TEXT(">>> Out of guesses. Target will refresh."));
-        PendingLines.Add(FString::Printf(TEXT("Target decimal was: %s"), *NewTarget));
-        PendingLines.Add(TEXT("Starting new round..."));
-        StartDisplayingLines();
-        // 延迟重置
-        if (GetWorld())
-        {
-            GetWorld()->GetTimerManager().SetTimer(DisplayTimerHandle, this, &UTerminalWidget::ResetRound, 2.5f, false);
-        }
-    }
-    StartDisplayingLines();
+	if (!Display)
+	{
+		return;
+	}
+
+	Display->AddPendingLine(FString::Printf(TEXT("Guess %d: %s  (matching bits: %d)"), CurrentGuessCount, *Guess, MatchCount));
+	if (MatchCount == BinaryLength)
+	{
+		BinaryGuessActivated = false;
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Boordle_GuessCorrectFollowup);
+		Display->StartDisplayingLines();
+	}
+	if (CurrentGuessCount >= MaxGuesses)
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Boordle_OutOfGuessesPrefix);
+		// 目标串为运行时生成，保留在代码中
+		Display->AddPendingLine(FString::Printf(TEXT("Target decimal was: %s"), *NewTarget));
+		Display->AddPendingLine(TEXT("Starting new round..."));
+		Display->StartDisplayingLines();
+		Display->SetOneShotTimer(2.5f, [this]()
+		{
+			ResetRound();
+		});
+	}
+	Display->StartDisplayingLines();
 }
-
-
 
 void UTerminalWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-	// CurrentText = TEXT("");
-	CurrentInputLine = TEXT("");
-    SetIsFocusable(true);
 
-    // 初始化猜数字小游戏
-    BinaryLength = 6;
-    MaxGuesses = 7;
-    ResetRound();
+	// 显示层与 Widget 解耦，由 Display 负责逐行输出
+	Display = NewObject<UTerminalDisplayController>(this);
+	Display->Initialize(this, TerminalText);
+	Display->Interval = Interval;
+	Display->ClearInputLine();
 
-    ////////////// 初始化终端交互逻辑 ///////////////////////////////////////////////////////
-    
-    // 初始化命令顺序
-    CommandSequence = { 
-        // TEXT("O"),
-        TEXT("REBOOT"),
-        TEXT("SCAN AND REPAIR"),
-        TEXT("BOORDLE"),
-        TEXT("I AM A HUMAN BEING"),
-        TEXT("LIFT QUARANTINE"),
-        TEXT("CALIBRATE NORTH ENTRY DOOR"),
-        TEXT("ASCEND"),
-         };
-    NextCommandIndex = 0;
-    
-    // 初始化文本命令
-    CommandTextMap.Add(TEXT("JUMP"), { TEXT("Hello world!"), TEXT("compile..."), TEXT("Done!") });
-    CommandTextMap.Add(TEXT("HELLO"), { TEXT("Hi!"), TEXT("Welcome.") });
-    CommandTextMap.Add(TEXT("REBOOT"), {
-        TEXT("cOS [Version 12.0.19248.417] "),
-        TEXT("(c) 1998 JTEC corporation. All rights reserved."),
-        TEXT(""),
-        TEXT("safe mode is active "),
-        TEXT("An unexpected crash has occurred! "),
-        TEXT(" to fix potential faults type: "),
-        TEXT("SCAN AND REPAIR")
-    });
-    CommandTextMap.Add(TEXT("SCAN AND REPAIR"), {
-        TEXT(""),
-        TEXT("Scanning Files "),
-        TEXT(" "),
-        TEXT("Checking BIOS ...OK"),
-        TEXT("Checking OS ...OK"),
-        TEXT("Checking Data ...OK"),
-    });
-    CommandTextMap.Add(TEXT("I AM A HUMAN BEING"), {
-        TEXT(""),
-        TEXT("insufficient further validation required."),
-        TEXT("press any key to start additional verification."),
-    });
-    
-    CommandTextMap.Add(TEXT("LIFT QUARANTINE"),
-    {
-        TEXT(""),
-        TEXT("ERROR!"),
-        TEXT("NORTH ENTRY door is not calibrated correctly"),
-        TEXT(""),
-        TEXT("to calibrate door type"),
-        TEXT("\"CALIBRATE NORTH ENTRY DOOR\"")
-        });
-    
+	SetIsFocusable(true);
 
+	BinaryLength = 6;
+	MaxGuesses = 7;
+	ResetRound();
 
-    // 初始化行为命令（绑定成员函数或 lambda）
-    CommandActionMap.Add(TEXT("O"), [this]()
-    {
-        if (ADoubleAutoDoor* Door = Cast<ADoubleAutoDoor>(UGameplayStatics::GetActorOfClass(GetWorld(), ADoubleAutoDoor::StaticClass())))
-        {
-            Door->DoorOpened();
-        }
-    });
-    CommandActionMap.Add(TEXT("CLEAR"), [this]()
-    {
-        if (TerminalText)
-        {
-            TerminalText->SetText(FText::GetEmpty());
-        }
-        CurrentText.Empty();
-    });
+	// 命令表来自 Data Asset；行为表在此注册
+	LoadTerminalCommandDataFromAsset();
+	SetupCommandActions();
 
-    CommandActionMap.Add(TEXT("REBOOT"), [this]()
-    {
-        PendingLines.Append(CommandTextMap[CurrentInputLine]);
-        StartDisplayingLinesProcedure(3.f);        
-    });
-    
-    CommandActionMap.Add(TEXT("SCAN AND REPAIR"), [this]()
-    {
-        PendingLines.Append(CommandTextMap[CurrentInputLine]);
-        StartDisplayingLines();
-        PendingLines.Append({
-            TEXT(""),
-            TEXT("Scanning finished"),
-            TEXT("Finished FAULTS FOUND (1): "),
-            TEXT("SystemTools.bin is malformed "),
-            TEXT("Suggestion use BOORDLE to identify binary fault ")
-        });
-        StartDisplayingLinesProcedure(1.f);        
-    });
-    CommandActionMap.Add(TEXT("BOORDLE"), [this]()
-    {
-        BinaryGuessActivated = true;
-        PendingLines.Append({
-            TEXT("Binary Guess Game Started"),
-        });
-        StartDisplayingLines();        
-    });
+	/* LEGACY — CommandSequence / CommandTextMap / CommandActionMap 内联文案（已迁至 UCrankItTerminalCommandData）
+	CommandSequence = {
+		TEXT("REBOOT"),
+		TEXT("SCAN AND REPAIR"),
+		TEXT("BOORDLE"),
+		TEXT("I AM A HUMAN BEING"),
+		TEXT("LIFT QUARANTINE"),
+		TEXT("CALIBRATE NORTH ENTRY DOOR"),
+		TEXT("ASCEND"),
+	};
+	NextCommandIndex = 0;
 
-    // 启动分类小游戏的特殊指令
-    CommandActionMap.Add(TEXT(""), [this]()
-    {
-        EnterClassificationGame();
-    });
-
-    CommandActionMap.Add(TEXT("CALIBRATE"), [this]()
-    {
-        PendingLines.Append({
-            TEXT("CALIBRATE Game Started"),
-        });
-        StartDisplayingLines();
-        EnterCalibrationGame();
-    });
-
-    CommandActionMap.Add(TEXT("UPDATE SYSTEM"), [this]()
-    {
-        PendingLines.Append(
-            {
-                TEXT(""),
-                TEXT("Error!"),
-                TEXT("EMERGENCY QUARANTINE IS IN EFFECT"),
-                TEXT(""),
-                TEXT("to access lift controls quarantine must be lifted."),
-                TEXT("all doors will open upon lifting quarantine."),
-                TEXT("type the following to lift quarantine"),
-                TEXT("\"LIFT QUARANTINE\"")
-            });
-        StartDisplayingLinesProcedure(5.f);
-    });
-
-    CommandActionMap.Add(TEXT("LIFT QUARANTINE"), [this]()
-    {
-        PendingLines.Append(
-            {
-                TEXT(""),
-                TEXT("ERROR!"),
-                TEXT("EMERGENCY QUARANTINE IS IN EFFECT"),
-                TEXT(""),
-                TEXT("to access lift controls quarantine must be lifted."),
-                TEXT("all doors will open upon lifting quarantine."),
-                TEXT("type the following to lift quarantine"),
-                TEXT("\"LIFT QUARANTINE\""),
-            }
-        );
-        StartDisplayingLinesProcedure(5.f);
-    });
-
-    CommandActionMap.Add(TEXT("CALIBRATE NORTH ENTRY DOOR"), [this]()
-    {
-        PendingLines.Append(
-            {
-                TEXT(""),
-                TEXT("Unlocking Door Please wait.."),
-                TEXT(""),
-            });
-        StartDisplayingLinesProcedure(15.f);
-        PendingLines.Append(
-            {
-                TEXT("Door Unlocked thank you for being"),
-                TEXT("Patient"),
-            });
-        StartDisplayingLines();
-        PendingLines.Append(
-            {
-                TEXT(""),
-                TEXT("Error!"),
-                TEXT("Low auxiliary detected."),
-                TEXT("A recharge is required to operate lift safely"),
-                TEXT(""),
-                TEXT("press any key to continue"),
-            }
-        );
-        StartDisplayingLinesProcedure(5.f);
-        PendingLines.Append(
-            {
-                TEXT(""),
-                TEXT("Warning this terminal has been temporarily restricted"),
-                TEXT("to avoid excessive use, for YOUR SAFETY."),
-                TEXT(""),
-                TEXT("Terminal will be available in 60 seconds")
-            }
-        );
-        StartDisplayingLines();
-        PendingLines.Append(
-            {
-                TEXT("Terminal will be available in 30 seconds"),
-                TEXT(""),
-            }
-        );
-        StartDisplayingLinesProcedure(30.f);
-        PendingLines.Append(
-            {
-                TEXT("Terminal unlocked press any key to continue"),
-            }
-        );
-        StartDisplayingLinesProcedure(30.f);
-    });
-    CommandActionMap.Add(TEXT(""), [this]()
-    {
-        for(int32 i = 0; i < 14; ++i)
-        {
-            PendingLines.Add(TEXT("GOD IS DEAD"));
-            StartDisplayingLinesProcedure(1.f);
-        }
-    });
-    CommandActionMap.Add(TEXT(""), [this]()
-    {
-        PendingLines.Append(
-            {
-                TEXT(""),
-                TEXT("lift operational"),
-                TEXT("to ascend type"),
-                TEXT("\"ASCEND\""),
-            }
-        );
-        StartDisplayingLines();
-    }
-    );
-    CommandActionMap.Add(TEXT("ASCEND"), [this](){
-        PendingLines.Append(
-            {
-                TEXT("GAME OVER!"),
-            }
-        );
-        StartDisplayingLines();
-        }
-    );
-
-    // 需要电池的命令：BatteryGatedCommands.Add(...) 并在对应 CommandActionMap 中调用 TryStartBatteryHold
-
-    //////////////////////////////////////////////////////////////////////////////////
+	CommandTextMap.Add(TEXT("JUMP"), { TEXT("Hello world!"), TEXT("compile..."), TEXT("Done!") });
+	CommandTextMap.Add(TEXT("HELLO"), { TEXT("Hi!"), TEXT("Welcome.") });
+	CommandTextMap.Add(TEXT("REBOOT"), {
+		TEXT("cOS [Version 12.0.19248.417] "),
+		TEXT("(c) 1998 JTEC corporation. All rights reserved."),
+		TEXT(""),
+		TEXT("safe mode is active "),
+		TEXT("An unexpected crash has occurred! "),
+		TEXT(" to fix potential faults type: "),
+		TEXT("SCAN AND REPAIR")
+	});
+	CommandTextMap.Add(TEXT("SCAN AND REPAIR"), {
+		TEXT(""),
+		TEXT("Scanning Files "),
+		TEXT(" "),
+		TEXT("Checking BIOS ...OK"),
+		TEXT("Checking OS ...OK"),
+		TEXT("Checking Data ...OK"),
+	});
+	CommandTextMap.Add(TEXT("I AM A HUMAN BEING"), {
+		TEXT(""),
+		TEXT("insufficient further validation required."),
+		TEXT("press any key to start additional verification."),
+	});
+	CommandTextMap.Add(TEXT("LIFT QUARANTINE"),
+	{
+		TEXT(""),
+		TEXT("ERROR!"),
+		TEXT("NORTH ENTRY door is not calibrated correctly"),
+		TEXT(""),
+		TEXT("to calibrate door type"),
+		TEXT("\"CALIBRATE NORTH ENTRY DOOR\"")
+	});
+	// … CommandActionMap 内 AppendPendingLines 文案见 CrankItNarrativeIds.h → Terminal::* BlockId
+	*/
 }
 
-
-void UTerminalWidget::StartDisplayingLinesProcedure(float delay)
+void UTerminalWidget::StartDisplayingLinesProcedure(float Delay, TFunction<void()> OnProcedureComplete)
 {
-    if (!GetWorld()) return;
-
-    if (GetWorld()->GetTimerManager().IsTimerActive(DisplayTimerHandle))
-    {
-        return;
-    }
-    UE_LOG(LogTemp, Display, TEXT("rebooting"));
-
-    GetWorld()->GetTimerManager().SetTimer(
-        DisplayTimerHandle,
-        this,
-        &UTerminalWidget::StartDisplayingLines,
-        0.1f,
-        false,
-        3.f
-    );
+	if (Display)
+	{
+		Display->StartDisplayingLinesProcedure(Delay, MoveTemp(OnProcedureComplete));
+	}
 }
 
 void UTerminalWidget::NativeDestruct()
 {
-    if (UWorld* World = GetWorld())
-    {
-        World->GetTimerManager().ClearTimer(BatteryHoldTimerHandle);
-        World->GetTimerManager().ClearTimer(DisplayTimerHandle);
-    }
-    bBatteryHoldActive = false;
-    Super::NativeDestruct();
+	if (Display)
+	{
+		Display->ClearDisplayTimer();
+	}
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(BatteryHoldTimerHandle);
+	}
+	bBatteryHoldActive = false;
+	Super::NativeDestruct();
+}
+
+void UTerminalWidget::AddNewLine(const FString& Line)
+{
+	if (Display)
+	{
+		Display->AddNewLine(Line);
+	}
+}
+
+void UTerminalWidget::AddNewLines(const TArray<FString>& Lines)
+{
+	if (Display)
+	{
+		Display->AddNewLines(Lines);
+	}
 }
 
 FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
-    const FKey Key = InKeyEvent.GetKey();
+	const FKey Key = InKeyEvent.GetKey();
 
-    if (bBatteryHoldActive)
-    {
-        if (Key == EKeys::Tab)
-        {
-            if (UWorld* World = GetWorld())
-            {
-                if (APlayerController* PC = World->GetFirstPlayerController())
-                {
-                    if (APawn* Pawn = PC->GetPawn())
-                    {
-                        if (APlayerCamera* PlayerCamera = Cast<APlayerCamera>(Pawn))
-                        {
-                            PlayerCamera->ExitScreenInput(FInputActionValue());
-                        }
-                    }
-                }
-            }
-        }
-        return FReply::Handled();
-    }
+	if (bBatteryHoldActive)
+	{
+		if (Key == EKeys::Tab)
+		{
+			if (UWorld* World = GetWorld())
+			{
+				if (APlayerController* PC = World->GetFirstPlayerController())
+				{
+					if (APawn* Pawn = PC->GetPawn())
+					{
+						if (APlayerCamera* PlayerCamera = Cast<APlayerCamera>(Pawn))
+						{
+							PlayerCamera->ExitScreenInput(FInputActionValue());
+						}
+					}
+				}
+			}
+		}
+		return FReply::Handled();
+	}
 
-    // 如果当前处于分类小游戏中，则把输入交给小游戏处理（这里只处理 A / D / Enter 三个键）
-    if (CurrentInputMode == ETerminalInputMode::ClassificationGame)
-    {
-        // 保留 Tab 作为兜底退出，避免输入被完全锁死
-        if (Key == EKeys::Tab)
-        {
-            ExitClassificationGame();
-            return FReply::Handled();
-        }
+	if (CurrentInputMode == ETerminalInputMode::ClassificationGame)
+	{
+		if (Key == EKeys::Tab)
+		{
+			ExitClassificationGame();
+			return FReply::Handled();
+		}
 
-        if (ClassificationGameWidget)
-        {
-            // 转发 A/D/Enter 给小游戏；其它键忽略
-            if (Key == EKeys::A || Key == EKeys::Left ||
-                Key == EKeys::D || Key == EKeys::Right ||
-                Key == EKeys::Enter)
-            {
-                ClassificationGameWidget->HandleKey(Key);
-            }
-        }
-        return FReply::Handled();
-    }
+		if (ClassificationGameWidget)
+		{
+			if (Key == EKeys::A || Key == EKeys::Left ||
+				Key == EKeys::D || Key == EKeys::Right ||
+				Key == EKeys::Enter)
+			{
+				ClassificationGameWidget->HandleKey(Key);
+			}
+		}
+		return FReply::Handled();
+	}
 
-    if (CurrentInputMode == ETerminalInputMode::CalibrationGame)
-    {
-        if (Key == EKeys::Tab)
-        {
-            ExitCalibrationGame();
-            return FReply::Handled();
-        }
+	if (CurrentInputMode == ETerminalInputMode::CalibrationGame)
+	{
+		if (Key == EKeys::Tab)
+		{
+			ExitCalibrationGame();
+			return FReply::Handled();
+		}
 
-        if (CalibrationWidget && Key == EKeys::Enter)
-        {
-            CalibrationWidget->HandleKey(Key);
-        }
-        return FReply::Handled();
-    }
+		if (CalibrationWidget && Key == EKeys::Enter)
+		{
+			CalibrationWidget->HandleKey(Key);
+		}
+		return FReply::Handled();
+	}
 
-    if (Key == EKeys::Enter)
-    {
-        CommitInput();
-        return FReply::Handled();
-    }
-    else if (Key == EKeys::BackSpace)
-    {
-        if (!CurrentInputLine.IsEmpty())
-        {
-            CurrentInputLine.RemoveAt(CurrentInputLine.Len() - 1);
-            UpdateDisplay();
-        }
-        return FReply::Handled();
- 
-    }
-    else if (Key == EKeys::Tab)
-    {
-        // 终端获得键盘焦点时，Tab 不会再传递到 Pawn 的输入映射
-        // 这里主动调用 PlayerCamera 的退出逻辑
-        if (UWorld* World = GetWorld())
-        {
-            if (APlayerController* PC = World->GetFirstPlayerController())
-            {
-                if (APawn* Pawn = PC->GetPawn())
-                {
-                    if (APlayerCamera* PlayerCamera = Cast<APlayerCamera>(Pawn))
-                    {
-                        PlayerCamera->ExitScreenInput(FInputActionValue());
-                    }
-                }
-            }
-        }
+	if (!Display)
+	{
+		return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+	}
 
-        return FReply::Handled();
-    }
-    else
-    {
-        // 捕获字符输入
-        uint32 CharCode = InKeyEvent.GetCharacter();
-        if (CharCode != 0) // 0 表示没有有效字符
-            {
-            TCHAR Char = (TCHAR)CharCode;
-            if(BinaryGuessActivated)
-            {
-                if ((Char == '0' || Char == '1') && CurrentInputLine.Len() < BinaryLength)
-                {
-                    CurrentInputLine.AppendChar(Char);
-                    CommitGuessNum();
-                    UpdateDisplay();
-                }
-            }
-            else{
-                CurrentInputLine.AppendChar(Char);
-                UpdateDisplay();
-            }
-            }
- 
-    }
+	if (Key == EKeys::Enter)
+	{
+		CommitInput();
+		return FReply::Handled();
+	}
+	if (Key == EKeys::BackSpace)
+	{
+		Display->RemoveLastInputChar();
+		Display->UpdateDisplay();
+		return FReply::Handled();
+	}
+	if (Key == EKeys::Tab)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (APlayerController* PC = World->GetFirstPlayerController())
+			{
+				if (APawn* Pawn = PC->GetPawn())
+				{
+					if (APlayerCamera* PlayerCamera = Cast<APlayerCamera>(Pawn))
+					{
+						PlayerCamera->ExitScreenInput(FInputActionValue());
+					}
+				}
+			}
+		}
+		return FReply::Handled();
+	}
 
-    return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+	const uint32 CharCode = InKeyEvent.GetCharacter();
+	if (CharCode != 0)
+	{
+		const TCHAR Char = static_cast<TCHAR>(CharCode);
+		if (BinaryGuessActivated)
+		{
+			if ((Char == TEXT('0') || Char == TEXT('1')) && Display->GetCurrentInputLine().Len() < BinaryLength)
+			{
+				Display->AppendCharToInputLine(Char);
+				CommitGuessNum();
+				Display->UpdateDisplay();
+			}
+		}
+		else
+		{
+			Display->AppendCharToInputLine(Char);
+			Display->UpdateDisplay();
+		}
+	}
+
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
 void UTerminalWidget::CommitGuessNum()
 {
-    if(CurrentInputLine.Len() != BinaryLength)
-    {
-        return;
-    }
-    CurrentText += CurrentInputLine + TEXT("\n");
-    AddToGuessHistory(CurrentInputLine);
+	if (!Display || Display->GetCurrentInputLine().Len() != BinaryLength)
+	{
+		return;
+	}
 
-    CurrentInputLine.Empty();
-    UpdateDisplay();
+	const FString Guess = Display->GetCurrentInputLine();
+	Display->AppendToCurrentText(Guess + TEXT("\n"));
+	AddToGuessHistory(Guess);
+	Display->ClearInputLine();
+	Display->UpdateDisplay();
+}
+
+void UTerminalWidget::ClearPreviousWrongAttemptFromScreen()
+{
+	if (!Display)
+	{
+		return;
+	}
+
+	Display->ClearDisplayTimer();
+	Display->RemovePendingLinesIf([](const FString& Line)
+	{
+		return Line.StartsWith(TEXT("Unknown command:"));
+	});
+
+	if (!CurrentStageErrorText.IsEmpty() && Display->CurrentTextEndsWith(CurrentStageErrorText))
+	{
+		Display->RemoveCurrentTextSuffix(CurrentStageErrorText);
+	}
+	CurrentStageErrorText.Empty();
+
+	if (!CurrentStageWrongInputText.IsEmpty() && Display->CurrentTextEndsWith(CurrentStageWrongInputText))
+	{
+		Display->RemoveCurrentTextSuffix(CurrentStageWrongInputText);
+	}
+	CurrentStageWrongInputText.Empty();
+}
+
+void UTerminalWidget::ShowStageCommandError(const FString& SubmittedInput)
+{
+	if (!Display)
+	{
+		return;
+	}
+
+	const FString ErrorLine = FString::Printf(TEXT("Unknown command: %s"), *SubmittedInput);
+	CurrentStageErrorText = ErrorLine + TEXT("\n");
+	Display->AddPendingLine(ErrorLine);
+	bErrorShownForCurrentCommand = true;
+	Display->StartDisplayingLines();
 }
 
 void UTerminalWidget::CommitInput()
 {
-    CurrentText += CurrentInputLine + TEXT("\n");
+	if (!Display)
+	{
+		return;
+	}
 
-    if (bBatteryHoldActive)
-    {
-        PendingLines.Add(TEXT("Auxiliary power transfer in progress. Please wait..."));
-        StartDisplayingLines();
-        CurrentInputLine.Empty();
-        UpdateDisplay();
-        return;
-    }
+	const FString SubmittedInput = Display->GetCurrentInputLine();
+	Display->ClearInputLine();
 
-    // 防止越界
-    if(NextCommandIndex >= CommandSequence.Num())
-    {
-        PendingLines.Add(FString::Printf(TEXT("Unknown command: %s"), *CurrentInputLine));
-        StartDisplayingLines();
-        CurrentInputLine.Empty();
-        UpdateDisplay();
-        return;
-    }
-    // 清空终端
-    ClearTerminal();
+	if (bBatteryHoldActive)
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Battery_TransferInProgress);
+		/* LEGACY: TEXT("Auxiliary power transfer in progress. Please wait...") */
+		Display->StartDisplayingLines();
+		Display->UpdateDisplay();
+		return;
+	}
 
-    // 目前应当输入的命令
-    const FString& Expected = CommandSequence[NextCommandIndex];
-    
-    UE_LOG(LogTemp, Display, TEXT("now index: %d"), NextCommandIndex);
+	auto HandleWrongCommand = [this, &SubmittedInput]()
+	{
+		if (bErrorShownForCurrentCommand || !CurrentStageWrongInputText.IsEmpty())
+		{
+			ClearPreviousWrongAttemptFromScreen();
+		}
+		CurrentStageWrongInputText = SubmittedInput + TEXT("\n");
+		Display->AppendToCurrentText(CurrentStageWrongInputText);
+		ShowStageCommandError(SubmittedInput);
+	};
 
-    if (CurrentInputLine.Equals(Expected))
-    {
+	if (NextCommandIndex >= CommandSequence.Num())
+	{
+		HandleWrongCommand();
+		Display->UpdateDisplay();
+		return;
+	}
 
-        // 优先查行为命令表
-        if (CommandActionMap.Contains(CurrentInputLine))
-        {
-            // 执行行为（同步）
-            CommandActionMap[CurrentInputLine]();
-            NextCommandIndex++;
-        }
-        // 否则显示文字
-        else if (CommandTextMap.Contains(CurrentInputLine))
-        {
-            // 文本命令：把对应行加入 PendingLines 并启动定时器显示
-            
-            PendingLines.Append(CommandTextMap[CurrentInputLine]);
-            StartDisplayingLines();
-            NextCommandIndex++;
-        }
-        else
-        {
-            PendingLines.Add(FString::Printf(TEXT("Unknown command: %s"), *CurrentInputLine));
-            StartDisplayingLines();
-        }
-    }
-    else
-    {
-        PendingLines.Add(FString::Printf(TEXT("Unknown command: %s"), *CurrentInputLine));
-        StartDisplayingLines();
-    }
+	const FString& Expected = CommandSequence[NextCommandIndex];
+	UE_LOG(LogTemp, Display, TEXT("now index: %d"), NextCommandIndex);
 
-    CurrentInputLine.Empty();
-    UpdateDisplay();
+	if (SubmittedInput.Equals(Expected))
+	{
+		Display->ClearDisplayTimer();
+		Display->ClearPendingLines();
+		Display->ClearTerminal();
+		bErrorShownForCurrentCommand = false;
+		CurrentStageErrorText.Empty();
+		CurrentStageWrongInputText.Empty();
+
+		if (CommandActionMap.Contains(SubmittedInput))
+		{
+			PendingCommandKey = SubmittedInput;
+			CommandActionMap[SubmittedInput]();
+			PendingCommandKey.Empty();
+			NextCommandIndex++;
+		}
+		else if (CommandTextMap.Contains(SubmittedInput))
+		{
+			Display->AppendPendingLines(CommandTextMap[SubmittedInput]);
+			Display->StartDisplayingLines();
+			NextCommandIndex++;
+		}
+		else
+		{
+			Display->AddPendingLine(FString::Printf(TEXT("Unknown command: %s"), *SubmittedInput));
+			Display->StartDisplayingLines();
+		}
+	}
+	else
+	{
+		HandleWrongCommand();
+	}
+
+	Display->UpdateDisplay();
 }
-
-// 用于添加单行的文本
-void UTerminalWidget::AddNewLine(const FString& Line)
-{
-    PendingLines.Add(Line);
-    StartDisplayingLines();
-}
-
-// 用于添加多行的文本
-void UTerminalWidget::AddNewLines(const TArray<FString>& Lines)
-{
-    PendingLines.Append(Lines);
-    StartDisplayingLines();
-}
-
-void UTerminalWidget::StartDisplayingLines()
-{
-    if (!GetWorld()) return;
-    
-    if (GetWorld())
-    {
-        GetWorld()->GetTimerManager().ClearTimer(DisplayTimerHandle);
-    }
-
-    UE_LOG(LogTemp, Display, TEXT("StartDisplayingLines"));
-
-    GetWorld()->GetTimerManager().SetTimer(
-        DisplayTimerHandle,
-        this,
-        &UTerminalWidget::DisplayNextLine,
-        Interval,
-        true
-    );
-}
-
-void UTerminalWidget::DisplayNextLine()
-{
-    if (PendingLines.Num() == 0)
-    {
-        if (GetWorld())
-        {
-            GetWorld()->GetTimerManager().ClearTimer(DisplayTimerHandle);
-        }
-        return;
-    }
-
-    FString Line = PendingLines[0];
-    PendingLines.RemoveAt(0);
-
-    CurrentText += Line + TEXT("\n");
-    UpdateDisplay();
-}
-
-// ================= 分类小游戏模式切换 =================
 
 void UTerminalWidget::EnterClassificationGame()
 {
-    if (!ClassificationGameWidget)
-    {
-        PendingLines.Add(TEXT("ClassificationGameWidget is not bound. Please check widget name in UMG."));
-        StartDisplayingLines();
-        bInClassificationGame = false;
-        CurrentInputMode = ETerminalInputMode::Terminal;
-        return;
-    }
+	if (!Display)
+	{
+		return;
+	}
 
-    // 切换到分类小游戏输入模式
-    bInClassificationGame = true;
-    CurrentInputMode = ETerminalInputMode::ClassificationGame;
+	if (!ClassificationGameWidget)
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Classification_WidgetMissing);
+		/* LEGACY: ClassificationGameWidget is not bound... */
+		Display->StartDisplayingLines();
+		bInClassificationGame = false;
+		CurrentInputMode = ETerminalInputMode::Terminal;
+		return;
+	}
 
-    // 清空当前终端输入行，避免残留
-    CurrentInputLine.Empty();
-    UpdateDisplay();
+	bInClassificationGame = true;
+	CurrentInputMode = ETerminalInputMode::ClassificationGame;
+	Display->ClearInputLine();
+	Display->UpdateDisplay();
 
-    // 这里可以追加一行提示信息到终端（如果你希望在进入小游戏前在终端上写一行文字）
-    // PendingLines.Add(TEXT("Classification game started."));
-    // StartDisplayingLines();
+	ClassificationGameWidget->SetVisibility(ESlateVisibility::Visible);
 
-    // 实际项目中，你可以在这里显示分类小游戏的 Widget（比如通过蓝图绑定的子 Widget）
-    ClassificationGameWidget->SetVisibility(ESlateVisibility::Visible);
+	TArray<FClassificationItem> DefaultItems;
+	DefaultItems.Reserve(24);
+	for (int32 i = 0; i < 24; ++i)
+	{
+		FClassificationItem Item;
+		Item.Id = FName(*FString::Printf(TEXT("Item_%02d"), i + 1));
+		if (i < 8)
+		{
+			Item.CorrectCategory = EClassificationCategory::Animal;
+		}
+		else if (i < 16)
+		{
+			Item.CorrectCategory = EClassificationCategory::Fruit;
+		}
+		else
+		{
+			Item.CorrectCategory = EClassificationCategory::Sport;
+		}
+		DefaultItems.Add(Item);
+	}
+	ClassificationGameWidget->StartGame(DefaultItems);
 
-        // 生成 3x8 的默认测试数据（先用文字 ID 替代图片）
-        TArray<FClassificationItem> DefaultItems;
-        DefaultItems.Reserve(24);
-        for (int32 i = 0; i < 24; ++i)
-        {
-            FClassificationItem Item;
-            Item.Id = FName(*FString::Printf(TEXT("Item_%02d"), i + 1));
-            if (i < 8)
-            {
-                Item.CorrectCategory = EClassificationCategory::Animal;
-            }
-            else if (i < 16)
-            {
-                Item.CorrectCategory = EClassificationCategory::Fruit;
-            }
-            else
-            {
-                Item.CorrectCategory = EClassificationCategory::Sport;
-            }
-            DefaultItems.Add(Item);
-        }
-    ClassificationGameWidget->StartGame(DefaultItems);
-
-    // 绑定结束事件（避免重复绑定）
-    ClassificationGameWidget->OnGameFinished.RemoveAll(this);
-    ClassificationGameWidget->OnGameFinished.AddDynamic(this, &UTerminalWidget::HandleClassificationGameFinished);
+	ClassificationGameWidget->OnGameFinished.RemoveAll(this);
+	ClassificationGameWidget->OnGameFinished.AddDynamic(this, &UTerminalWidget::HandleClassificationGameFinished);
 }
 
 void UTerminalWidget::HandleClassificationGameFinished(bool bAllCorrect)
 {
+	if (!Display)
+	{
+		return;
+	}
+
 	if (bAllCorrect)
 	{
-		PendingLines.Add(TEXT("All classifications correct."));
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Classification_AllCorrect);
+		/* LEGACY: TEXT("All classifications correct.") */
 	}
 	else
 	{
-		PendingLines.Add(TEXT("Classification game ended."));
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Classification_Ended);
+		/* LEGACY: TEXT("Classification game ended.") */
 	}
 	ExitClassificationGame();
 }
 
 void UTerminalWidget::ExitClassificationGame()
 {
-    // 小游戏结束后，由小游戏调用此函数，恢复终端输入模式
-    bInClassificationGame = false;
-    CurrentInputMode = ETerminalInputMode::Terminal;
+	if (!Display)
+	{
+		return;
+	}
 
-    // 恢复终端的输入行
-    CurrentInputLine.Empty();
-    UpdateDisplay();
+	bInClassificationGame = false;
+	CurrentInputMode = ETerminalInputMode::Terminal;
+	Display->ClearInputLine();
+	Display->UpdateDisplay();
 
-    // 可以在终端中提示小游戏结束
-    PendingLines.Add(TEXT("Classification game finished. Back to terminal."));
-    StartDisplayingLines();
+	AppendTerminalOutputBlock(CrankItNarrative::Terminal::Classification_BackToTerminal);
+	/* LEGACY: TEXT("Classification game finished. Back to terminal.") */
+	Display->StartDisplayingLines();
 
-    if (ClassificationGameWidget)
-    {
-        ClassificationGameWidget->SetVisibility(ESlateVisibility::Collapsed);
-    }
+	if (ClassificationGameWidget)
+	{
+		ClassificationGameWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
 }
 
 void UTerminalWidget::EnterCalibrationGame()
 {
-    if (!CalibrationWidget)
-    {
-        PendingLines.Add(TEXT("CalibrationWidget is not bound. Please check widget name in UMG."));
-        StartDisplayingLines();
-        CurrentInputMode = ETerminalInputMode::Terminal;
-        return;
-    }
+	if (!Display)
+	{
+		return;
+	}
 
-    bInClassificationGame = false;
-    CurrentInputMode = ETerminalInputMode::CalibrationGame;
-    CurrentInputLine.Empty();
-    UpdateDisplay();
+	if (!CalibrationWidget)
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Calibration_WidgetMissing);
+		/* LEGACY: CalibrationWidget is not bound... */
+		Display->StartDisplayingLines();
+		CurrentInputMode = ETerminalInputMode::Terminal;
+		return;
+	}
 
-    CalibrationWidget->SetVisibility(ESlateVisibility::Visible);
+	bInClassificationGame = false;
+	CurrentInputMode = ETerminalInputMode::CalibrationGame;
+	Display->ClearInputLine();
+	Display->UpdateDisplay();
 
-    // 终端里若 TextBlock 铺满 Canvas，后添加的子项默认 ZOrder 可能更低，导致小游戏被完全挡住。
-    if (UPanelSlot* PanelSlot = CalibrationWidget->Slot)
-    {
-        if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(PanelSlot))
-        {
-            CanvasSlot->SetZOrder(1000);
-        }
-    }
+	CalibrationWidget->SetVisibility(ESlateVisibility::Visible);
 
-    CalibrationWidget->InvalidateLayoutAndVolatility();
-    CalibrationWidget->OnGameFinished.RemoveAll(this);
-    CalibrationWidget->OnGameFinished.AddDynamic(this, &UTerminalWidget::HandleCalibrationGameFinished);
-    CalibrationWidget->StartGame();
+	if (UPanelSlot* PanelSlot = CalibrationWidget->Slot)
+	{
+		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(PanelSlot))
+		{
+			CanvasSlot->SetZOrder(1000);
+		}
+	}
+
+	CalibrationWidget->InvalidateLayoutAndVolatility();
+	CalibrationWidget->OnGameFinished.RemoveAll(this);
+	CalibrationWidget->OnGameFinished.AddDynamic(this, &UTerminalWidget::HandleCalibrationGameFinished);
+	CalibrationWidget->StartGame();
 }
 
 void UTerminalWidget::HandleCalibrationGameFinished(bool bWon)
 {
-    if (bWon)
-    {
-        PendingLines.Add(TEXT(""));
-        PendingLines.Add(TEXT("HUMAN BEING verified"));
-        PendingLines.Add(TEXT(""));
-        PendingLines.Add(TEXT("Error!"));
-        PendingLines.Add(TEXT("An update is required to continue"));
-        PendingLines.Add(TEXT(""));
-        PendingLines.Add(TEXT("type the following to start the update"));
-        PendingLines.Add(TEXT("\"UPDATE SYSTEM\""));
-    }
-    else
-    {
-        PendingLines.Add(TEXT("Calibration game finished."));
-    }
-    ExitCalibrationGame();
+	if (!Display)
+	{
+		return;
+	}
+
+	if (bWon)
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Calibration_HumanVerified);
+		/* LEGACY: HUMAN BEING verified / UPDATE SYSTEM 提示 */
+	}
+	else
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Calibration_Ended);
+		/* LEGACY: TEXT("Calibration game finished.") */
+	}
+	ExitCalibrationGame();
 }
 
 void UTerminalWidget::ExitCalibrationGame()
 {
-    CurrentInputMode = ETerminalInputMode::Terminal;
-    CurrentInputLine.Empty();
-    UpdateDisplay();
+	if (!Display)
+	{
+		return;
+	}
 
-    PendingLines.Add(TEXT("Calibration game finished. Back to terminal."));
-    StartDisplayingLines();
+	CurrentInputMode = ETerminalInputMode::Terminal;
+	Display->ClearInputLine();
+	Display->UpdateDisplay();
 
-    if (CalibrationWidget)
-    {
-        CalibrationWidget->SetVisibility(ESlateVisibility::Collapsed);
-    }
+	AppendTerminalOutputBlock(CrankItNarrative::Terminal::Calibration_BackToTerminal);
+	/* LEGACY: TEXT("Calibration game finished. Back to terminal.") */
+	Display->StartDisplayingLines();
+
+	if (CalibrationWidget)
+	{
+		CalibrationWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
 }
-
-
-void UTerminalWidget::UpdateDisplay()
-{
-    if (TerminalText)
-    {
-        TerminalText->SetText(FText::FromString(CurrentText + CurrentInputLine));
-    }
-}
-
-void UTerminalWidget::ClearTerminal()
-{
-}
-
-// ================= 终端槽位供电 =================
 
 void UTerminalWidget::TryStartBatteryHold(const FString& Command)
 {
-    if (!BatteryGatedCommands.Contains(Command))
-    {
-        return;
-    }
+	if (!Display || !BatteryGatedCommands.Contains(Command))
+	{
+		return;
+	}
 
-    if (bBatteryHoldActive)
-    {
-        PendingLines.Add(TEXT("Auxiliary transfer already in progress."));
-        StartDisplayingLines();
-        return;
-    }
+	if (bBatteryHoldActive)
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Battery_TransferAlreadyActive);
+		/* LEGACY: TEXT("Auxiliary transfer already in progress.") */
+		Display->StartDisplayingLines();
+		return;
+	}
 
-    UWorld* World = GetWorld();
-    if (!World)
-    {
-        return;
-    }
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
 
-    if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))
-    {
-        PendingLines.Append({
-            TEXT(""),
-            TEXT("ERROR: Low auxiliary power."),
-            TEXT("Insert powered batteries into TerminalSlot slots."),
-            TEXT(""),
-        });
-        StartDisplayingLines();
-        return;
-    }
+	if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Battery_LowPowerError);
+		/* LEGACY: ERROR: Low auxiliary power... */
+		Display->StartDisplayingLines();
+		return;
+	}
 
-    const float Now = World->GetTimeSeconds();
-    bBatteryHoldActive = true;
-    BatteryHoldEndTime = Now + BatteryHoldDurationSeconds;
-    BatteryHoldLastDrainTime = Now;
-    BatteryHoldLastProgressTime = Now;
-    CurrentInputLine.Empty();
-    UpdateDisplay();
+	const float Now = World->GetTimeSeconds();
+	bBatteryHoldActive = true;
+	BatteryHoldEndTime = Now + BatteryHoldDurationSeconds;
+	BatteryHoldLastDrainTime = Now;
+	BatteryHoldLastProgressTime = Now;
+	Display->ClearInputLine();
+	Display->UpdateDisplay();
 
-    PendingLines.Append({
-        TEXT(""),
-        TEXT("Auxiliary power transfer initiated."),
-        TEXT("Do not remove batteries until transfer completes."),
-        FString::Printf(TEXT("Transfer remaining: %d seconds"), FMath::CeilToInt(BatteryHoldDurationSeconds)),
-        TEXT(""),
-    });
-    StartDisplayingLines();
+	AppendTerminalOutputBlock(CrankItNarrative::Terminal::Battery_TransferStarted);
+	Display->AddPendingLine(FString::Printf(
+		TEXT("Transfer remaining: %d seconds"),
+		FMath::CeilToInt(BatteryHoldDurationSeconds)));
+	Display->AddPendingLine(TEXT(""));
+	/* LEGACY: Auxiliary power transfer initiated... */
+	Display->StartDisplayingLines();
 
-    World->GetTimerManager().SetTimer(
-        BatteryHoldTimerHandle,
-        this,
-        &UTerminalWidget::OnBatteryHoldTick,
-        BatteryHoldTickInterval,
-        true
-    );
+	World->GetTimerManager().SetTimer(
+		BatteryHoldTimerHandle,
+		this,
+		&UTerminalWidget::OnBatteryHoldTick,
+		BatteryHoldTickInterval,
+		true
+	);
 }
 
 void UTerminalWidget::OnBatteryHoldTick()
 {
-    if (!bBatteryHoldActive)
-    {
-        return;
-    }
+	if (!Display || !bBatteryHoldActive)
+	{
+		return;
+	}
 
-    UWorld* World = GetWorld();
-    if (!World)
-    {
-        EndBatteryHold(false);
-        return;
-    }
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		EndBatteryHold(false);
+		return;
+	}
 
-    const float Now = World->GetTimeSeconds();
+	const float Now = World->GetTimeSeconds();
 
-    if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))
-    {
-        EndBatteryHold(false);
-        return;
-    }
+	if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))
+	{
+		EndBatteryHold(false);
+		return;
+	}
 
-    if (BatteryDrainInterval > KINDA_SMALL_NUMBER && Now - BatteryHoldLastDrainTime >= BatteryDrainInterval)
-    {
-        BatteryHoldLastDrainTime = Now;
-        TArray<ABattery*> Batteries;
-        FBatteryPowerChecker::GetBatteriesInTerminalSlots(World, MinBatteryChargeLevel, Batteries);
-        for (ABattery* Battery : Batteries)
-        {
-            if (Battery)
-            {
-                Battery->SetChargeProgress(FMath::Max(0, Battery->ChargeProgress - BatteryDrainAmount));
-            }
-        }
-        if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))
-        {
-            EndBatteryHold(false);
-            return;
-        }
-    }
+	if (BatteryDrainInterval > KINDA_SMALL_NUMBER && Now - BatteryHoldLastDrainTime >= BatteryDrainInterval)
+	{
+		BatteryHoldLastDrainTime = Now;
+		TArray<ABattery*> Batteries;
+		FBatteryPowerChecker::GetBatteriesInTerminalSlots(World, MinBatteryChargeLevel, Batteries);
+		for (ABattery* Battery : Batteries)
+		{
+			if (Battery)
+			{
+				Battery->SetChargeProgress(FMath::Max(0, Battery->ChargeProgress - BatteryDrainAmount));
+			}
+		}
+		if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))
+		{
+			EndBatteryHold(false);
+			return;
+		}
+	}
 
-    if (Now - BatteryHoldLastProgressTime >= 10.f)
-    {
-        BatteryHoldLastProgressTime = Now;
-        PendingLines.Add(FString::Printf(
-            TEXT("Transfer remaining: %d seconds"),
-            FMath::CeilToInt(FMath::Max(0.f, BatteryHoldEndTime - Now))));
-        StartDisplayingLines();
-    }
+	if (Now - BatteryHoldLastProgressTime >= 10.f)
+	{
+		BatteryHoldLastProgressTime = Now;
+		Display->AddPendingLine(FString::Printf(
+			TEXT("Transfer remaining: %d seconds"),
+			FMath::CeilToInt(FMath::Max(0.f, BatteryHoldEndTime - Now))));
+		Display->StartDisplayingLines();
+	}
 
-    if (Now >= BatteryHoldEndTime)
-    {
-        EndBatteryHold(true);
-    }
+	if (Now >= BatteryHoldEndTime)
+	{
+		EndBatteryHold(true);
+	}
 }
 
 void UTerminalWidget::EndBatteryHold(bool bSuccess)
 {
-    if (!bBatteryHoldActive)
-    {
-        return;
-    }
+	if (!Display || !bBatteryHoldActive)
+	{
+		return;
+	}
 
-    if (UWorld* World = GetWorld())
-    {
-        World->GetTimerManager().ClearTimer(BatteryHoldTimerHandle);
-    }
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(BatteryHoldTimerHandle);
+	}
 
-    bBatteryHoldActive = false;
-    BatteryHoldEndTime = 0.f;
+	bBatteryHoldActive = false;
+	BatteryHoldEndTime = 0.f;
 
-    if (bSuccess)
-    {
-        PendingLines.Append({
-            TEXT(""),
-            TEXT("Auxiliary power transfer complete."),
-            TEXT("Terminal input restored."),
-            TEXT(""),
-        });
-    }
-    else
-    {
-        PendingLines.Append({
-            TEXT(""),
-            TEXT("Auxiliary power transfer interrupted."),
-            TEXT("Progress reset."),
-            TEXT(""),
-            TEXT("ERROR: Low auxiliary power."),
-            TEXT("Insert powered batteries into TerminalSlot slots."),
-            TEXT(""),
-        });
-    }
-    StartDisplayingLines();
+	if (bSuccess)
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Battery_TransferComplete);
+		/* LEGACY: Auxiliary power transfer complete... */
+	}
+	else
+	{
+		AppendTerminalOutputBlock(CrankItNarrative::Terminal::Battery_TransferInterrupted);
+		/* LEGACY: transfer interrupted + low power error */
+	}
+	Display->StartDisplayingLines();
 }

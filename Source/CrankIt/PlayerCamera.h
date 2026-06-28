@@ -9,7 +9,6 @@
 #include "InputMappingContext.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "MineConsole.h"
 #include "ComputerScreenActor.h"
 #include "KeyPromptWidgetBase.h"
 #include "SubtitleWidget.h"
@@ -18,6 +17,9 @@
 #include "SkipTutorialWidget.h"
 
 #include "PlayerCamera.generated.h"
+
+class AMineConsole;
+class ABattery;
 
 UCLASS()
 class CRANKIT_API APlayerCamera : public APawn
@@ -44,6 +46,12 @@ public:
 	static void ApplyExplorationInputMode(APlayerController* PC);
 
 	static void SetExplorationMappingContextEnabled(APlayerController* PC, bool bEnabled);
+
+	/** 教程/字幕期间：关闭探索操作（过场模式、无鼠标点击）。 */
+	static void DisableAllInput(APlayerController* PC);
+
+	/** 教程/字幕结束后：恢复探索操作。 */
+	static void EnableAllInput(APlayerController* PC);
 	
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArmComp;
@@ -63,9 +71,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SoundDetector|Hold")
 	float SoundDetectorHoldLiftSpeed = 80.f;
 
-	/** 每帧调用：将 SoundDetectorHoldPoint 沿本地 Z 以可调速度平滑上移，直至达到 SoundDetectorHoldLiftDistance */
+	/** 字幕等事件结束后调用，在 Tick 中平滑抬升 SoundDetectorHoldPoint */
 	UFUNCTION(BlueprintCallable, Category = "SoundDetector|Hold")
-	void MoveSoundDetectorHoldPointUp(float DeltaTime);
+	void StartSoundDetectorHoldLift();
 
 	UPROPERTY(VisibleAnywhere)
 	USceneComponent* BatteryHoldPoint;
@@ -91,9 +99,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Tutorial")
 	TSubclassOf<USkipTutorialWidget> SktWidgetClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Tutorial")
-	TSubclassOf<USDTutorialWidget> TutorialWidgetClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Tutorial")
 	TSubclassOf<UKeyPromptWidgetBase> KeyPromptWidgetClass;
@@ -140,6 +145,9 @@ protected:
 	/** BeginPlay 时从组件读取，作为抬升起点 */
 	FVector SoundDetectorHoldBaseRelativeLocation = FVector::ZeroVector;
 	float SoundDetectorHoldCurrentLift = 0.f;
+	bool bLiftSoundDetectorHoldPoint = false;
+
+	void UpdateSoundDetectorHoldLift(float DeltaTime);
 
 	/** 交互后正平滑移向 BatteryHoldPoint，到位后写入 HoldBattery */
 	ABattery* BatteryMovingToHold = nullptr;

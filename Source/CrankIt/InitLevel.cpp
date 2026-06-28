@@ -2,6 +2,8 @@
 
 
 #include "InitLevel.h"
+#include "Monster.h"
+#include "MineConsole.h"
 #include "PlayerCamera.h"
 #include "ComputerScreenActor.h"
 #include "KeyPromptWidgetBase.h"
@@ -11,9 +13,44 @@
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
+#include "CrankItNarrativeSubsystem.h"
+#include "CrankItNarrativeIds.h"
 
 namespace
 {
+	// 通过叙事子系统按 TrackId 播放字幕
+	void PlaySubtitleTrackById(
+		UWorld* World,
+		FName TrackId,
+		TFunction<void()> OnComplete = TFunction<void()>())
+	{
+		if (UCrankItNarrativeSubsystem* Narrative = World ? World->GetSubsystem<UCrankItNarrativeSubsystem>() : nullptr)
+		{
+			Narrative->PlaySubtitleTrack(TrackId, MoveTemp(OnComplete));
+		}
+		else if (OnComplete)
+		{
+			OnComplete();
+		}
+	}
+
+	/* LEGACY — 字幕硬编码（已迁至 UCrankItNarrativeData，TrackId 见 CrankItNarrativeIds.h）
+	void PlaySubtitleTrack(
+		UWorld* World,
+		const TArray<FCrankItSubtitleLine>& Lines,
+		TFunction<void()> OnComplete = TFunction<void()>())
+	{
+		if (USubtitleSubsystem* SubtitleSys = World ? World->GetSubsystem<USubtitleSubsystem>() : nullptr)
+		{
+			SubtitleSys->PlaySubtitleTrack(Lines, MoveTemp(OnComplete));
+		}
+		else if (OnComplete)
+		{
+			OnComplete();
+		}
+	}
+	*/
+
 	ALevelSequenceActor* FindLevelSequenceActorByTag(UWorld* World, FName ActorTag)
 	{
 		if (!World || ActorTag.IsNone())
@@ -38,96 +75,6 @@ AInitLevel::AInitLevel()
 	PrimaryActorTick.bCanEverTick = true;
 }
 
-void AInitLevel::PlaySubtitleTrack(
-	const TArray<FInitLevelSubtitleLine>& Lines,
-	TFunction<void()> OnComplete)
-{
-	if (!SubtitleSys)
-	{
-		if (UWorld* World = GetWorld())
-		{
-			SubtitleSys = World->GetSubsystem<USubtitleSubsystem>();
-		}
-	}
-	if (!SubtitleSys || Lines.Num() == 0)
-	{
-		if (OnComplete)
-		{
-			OnComplete();
-		}
-		return;
-	}
-
-	TestCues.Reset();
-	for (const FInitLevelSubtitleLine& Line : Lines)
-	{
-		FCrankItSubtitleCue Cue;
-		Cue.StartTimeSeconds = Line.StartTimeSeconds;
-		Cue.EndTimeSeconds = Line.EndTimeSeconds;
-		Cue.Text = FText::FromString(Line.Text);
-		TestCues.Add(Cue);
-	}
-	SubtitleSys->StartSubtitleTrackWithWorldTime(TestCues);
-
-	if (!OnComplete)
-	{
-		return;
-	}
-
-	const float TrackEnd = TestCues.Last().EndTimeSeconds + 0.05f;
-	UE_LOG(LogTemp, Display, TEXT("Track End Time is: %f"), TrackEnd);
-	GetWorldTimerManager().SetTimer(
-		SequencerTimer,
-		FTimerDelegate::CreateLambda([OnComplete = MoveTemp(OnComplete)]() { OnComplete(); }),
-		TrackEnd,
-		false);
-}
-
-void AInitLevel::DisableAllInput()
-{
-	if (!Cam || !PC)
-	{
-		return;
-	}
-	PC->SetInputMode(FInputModeGameOnly());
-	PC->bShowMouseCursor = false;
-	Cam->bIsInCinematic = true;
-	APlayerCamera::SetExplorationMappingContextEnabled(PC, false);
-	
-
-	PC->bEnableClickEvents = false;
-	PC->bEnableMouseOverEvents = false;
-
-	PC->SetCinematicMode(
-		true,
-		true,
-		false,
-		true,
-		true
-	);
-}	
-
-void AInitLevel::EnableAllInput()
-{
-	if (!Cam || !PC)
-	{
-		return;
-	}
-	PC->SetInputMode(FInputModeGameAndUI());
-	PC->bShowMouseCursor = true;
-	Cam->bIsInCinematic = false;
-	APlayerCamera::SetExplorationMappingContextEnabled(PC, true);
-	APlayerCamera::ApplyExplorationInputMode(PC);
-
-	PC->SetCinematicMode(
-		false,
-		false,
-		false,
-		false,
-		false
-	);
-}
-
 void AInitLevel::BeginPlay()
 {
 	Super::BeginPlay();
@@ -140,14 +87,24 @@ void AInitLevel::BeginPlay()
 		}
 	}
 	
-	DisableAllInput();
+	APlayerCamera::DisableAllInput(PC);
 
-	// 无语音文件时：用世界时间轴跑几条测试字幕（上面已 AddToPlayerScreen；纯 C++ Widget 会自动建底栏 TextBlock）。
-	const TArray<FInitLevelSubtitleLine> IntroLines = {
-		{0.f, 2.5f, TEXT("【字幕测试】第一句（0~2.5 秒）")},
-		{2.5f, 5.f, TEXT("【字幕测试】第二句（2.5~5 秒）")},
-	};
-	PlaySubtitleTrack(IntroLines, [this]() {});
+	// 将 GameMode 上配置的 Data Asset 注入叙事子系统
+	if (UWorld* World = GetWorld())
+	{
+		if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
+		{
+			Narrative->SetNarrativeData(NarrativeData);
+			Narrative->SetTerminalCommandData(TerminalCommandData);
+		}
+	}
+
+	// LEGACY 测试字幕 — 已迁至 NarrativeData
+	// const TArray<FCrankItSubtitleLine> IntroLines = {
+	// 	{0.f, 2.5f, TEXT("【字幕测试】第一句（0~2.5 秒）")},
+	// 	{2.5f, 5.f, TEXT("【字幕测试】第二句（2.5~5 秒）")},
+	// };
+	// PlaySubtitleTrack(IntroLines, [this]() {});
 
 	GetWorldTimerManager().SetTimer(
 		DesendTimer,
@@ -170,21 +127,26 @@ void AInitLevel::BeginPlay()
 
 void AInitLevel::OnTutorialClosed()
 {
-	if(TutorialWidget)
+	if (TutorialWidget)
 	{
 		TutorialWidget->OnTutorialDismissed.RemoveDynamic(this, &AInitLevel::OnTutorialClosed);
 		TutorialWidget = nullptr;
 	}
+	++CurrentTutorialIndex;
 	if (!PC)
 	{
 		return;
 	}
 	APlayerCamera::ApplyExplorationInputMode(PC);
 
-	const TArray<FInitLevelSubtitleLine> PostTutorialLines = {
+	PlaySubtitleTrackById(GetWorld(), CrankItNarrative::Subtitle::PostTutorial, [this]() {});
+
+	/* LEGACY PostTutorial
+	const TArray<FCrankItSubtitleLine> PostTutorialLines = {
 		{0.f, 2.5f, TEXT("【字幕测试】教程测试文本2")},
 	};
-	PlaySubtitleTrack(PostTutorialLines, [this]() {});
+	PlaySubtitleTrack(GetWorld(), PostTutorialLines, [this]() {});
+	*/
 }
 
 void AInitLevel::ShowKeyPrompt()
@@ -234,6 +196,7 @@ void AInitLevel::PlaySequence(FName SequenceTag, bool bLoop)
 	{
 		Cam->bIsInCinematic = true;
 		APlayerCamera::SetExplorationMappingContextEnabled(PC, false);
+		PC->SetViewTarget(Cam);
 	}
 	PC->SetCinematicMode(
 		true,
@@ -253,6 +216,11 @@ void AInitLevel::PlaySequence(FName SequenceTag, bool bLoop)
 	if (ULevelSequencePlayer* Player = LevelSequenceActor->GetSequencePlayer())
 	{
 		BoundIntroSequencePlayer = Player;
+		bBoundSequenceLoops = bLoop;
+
+		FMovieSceneSequencePlaybackSettings Settings = LevelSequenceActor->PlaybackSettings;
+		Settings.LoopCount.Value = bLoop ? -1 : 0;
+		Player->SetPlaybackSettings(Settings);
 
 		Player->Stop();
 		Player->OnFinished.RemoveDynamic(this, &AInitLevel::OnLevelSequenceFinished);
@@ -266,7 +234,7 @@ void AInitLevel::SetFirstComputerScreenText()
 {
 	UWorld* World = GetWorld();
 
-	AComputerScreenActor* ComputerScreen = Cast<AComputerScreenActor>(UGameplayStatics::GetActorOfClass(World, AComputerScreenActor::StaticClass()));
+	ComputerScreen = Cast<AComputerScreenActor>(UGameplayStatics::GetActorOfClass(World, AComputerScreenActor::StaticClass()));
 	if (ComputerScreen)
 	{
 		ComputerScreen->SetFirstPromptText();
@@ -302,15 +270,27 @@ void AInitLevel::ShowSkipTutorial()
 
 void AInitLevel::ShowTutorial()
 {
-	if (!PC || !Cam || !Cam->TutorialWidgetClass)
+	if (!PC)
+	{
+		return;
+	}
+
+	if (CurrentTutorialIndex >= TutorialWidgetClasses.Num())
+	{
+		return;
+	}
+
+	const TSubclassOf<USDTutorialWidget> WidgetClass = TutorialWidgetClasses[CurrentTutorialIndex];
+	if (!WidgetClass)
 	{
 		return;
 	}
 
 	if (!TutorialWidget)
 	{
-		TutorialWidget = CreateWidget<USDTutorialWidget>(PC, Cam->TutorialWidgetClass);
+		TutorialWidget = CreateWidget<USDTutorialWidget>(PC, WidgetClass);
 	}
+
 	if (!TutorialWidget)
 	{
 		return;
@@ -327,6 +307,15 @@ void AInitLevel::ShowTutorial()
 	PC->bShowMouseCursor = true;
 }
 
+void AInitLevel::PrepareLevel()
+{
+	ComputerScreen = Cast<AComputerScreenActor>(UGameplayStatics::GetActorOfClass(GetWorld(), AComputerScreenActor::StaticClass()));
+	if (ComputerScreen) ComputerScreen->bIsClickable = true;
+	
+	Monster = Cast<AMonster>(UGameplayStatics::GetActorOfClass(GetWorld(), AMonster::StaticClass()));
+	if (Monster) Monster->bSpawnable = true;
+}
+
 void AInitLevel::StopIntroCutsceneAndReturnToGame()
 {
 	if (ULevelSequencePlayer* Player = BoundIntroSequencePlayer.Get())
@@ -336,22 +325,44 @@ void AInitLevel::StopIntroCutsceneAndReturnToGame()
 		{
 			FMovieSceneSequencePlaybackSettings Settings = LSA->PlaybackSettings;
 			Settings.LoopCount.Value = 0;
+			Settings.bPauseAtEnd = false;
 			Player->SetPlaybackSettings(Settings);
 		}
 		Player->Stop();
 	}
 	BoundIntroSequencePlayer.Reset();
+	bBoundSequenceLoops = false;
+	bBoundSequenceHoldAtEnd = false;
+	APlayerCamera::EnableAllInput(PC);
 	CleanupIntroUIAndRestoreGameplay();
 }
 
 void AInitLevel::OnLevelSequenceFinished()
 {
-	EnableAllInput();
+	if (bBoundSequenceHoldAtEnd)
+	{
+		return;
+	}
+
+	if (bBoundSequenceLoops)
+	{
+		if (ULevelSequencePlayer* Player = BoundIntroSequencePlayer.Get())
+		{
+			if (Player->IsPlaying())
+			{
+				return;
+			}
+		}
+	}
+
+	APlayerCamera::EnableAllInput(PC);
 	if (ULevelSequencePlayer* Player = BoundIntroSequencePlayer.Get())
 	{
 		Player->OnFinished.RemoveDynamic(this, &AInitLevel::OnLevelSequenceFinished);
 	}
 	BoundIntroSequencePlayer.Reset();
+	bBoundSequenceLoops = false;
+	bBoundSequenceHoldAtEnd = false;
 	CleanupIntroUIAndRestoreGameplay();
 }
 
@@ -382,42 +393,91 @@ void AInitLevel::CleanupIntroUIAndRestoreGameplay()
 
 void AInitLevel::TutorialSkipped()
 {
+	if (Cam && Cam->MineConsole)
+	{
+		Cam->MineConsole->bSkipedTutorial = true;
+	}
 	StopIntroCutsceneAndReturnToGame();
+	PlaySubtitleTrackById(GetWorld(), CrankItNarrative::Subtitle::TutorialSkipped, [this]() {});
+
+	/* LEGACY TutorialSkipped
 	PlaySubtitleTrack(
-		TArray<FInitLevelSubtitleLine>(
+		GetWorld(),
+		TArray<FCrankItSubtitleLine>(
 			{
 				{0.f, 2.5f, TEXT("【字幕测试】教程已跳过")}
 		}),
 		 [this]() { }
 		);
-
+	*/
 }
 
 void AInitLevel::TutorialNotSkipped()
 {
 	StopIntroCutsceneAndReturnToGame();
+	APlayerCamera::DisableAllInput(PC);
+
+	PlaySubtitleTrackById(
+		GetWorld(),
+		CrankItNarrative::Subtitle::TutorialNotSkipped_GordonIntro,
+		[this]()
+		{
+			APlayerCamera::EnableAllInput(PC);
+		});
+
+	/* LEGACY TutorialNotSkipped_GordonIntro
 	PlaySubtitleTrack(
-		TArray<FInitLevelSubtitleLine>(
+		GetWorld(),
+		TArray<FCrankItSubtitleLine>(
 			{
-				{0.f, 2.5f, TEXT("【字幕测试】教程测试文本。")}
-		}),
-		 [this]() {ShowTutorial();}
-		);
+				{0.f, 2.5f, TEXT("Hahaha, me neither!")},
+				{2.5f, 3.5f, TEXT("The air down here is as thin as my wallet.")},
+				{3.5f, 5.f, TEXT("Ha!")},
+				{5.f, 7.5f, TEXT("Just kidding. I'm Gordon.")},
+				{7.5f, 10.f, TEXT("I'm a highly trained professional.")},
+				{10.f, 12.5f, TEXT("Uh, Anyways...")},
+				{12.5f, 14.5f, TEXT("I'm gonna need you to use this here state "
+						"of the art machinery.")},
+				{14.5f, 16.5f, TEXT("\'The EMP Light Manifold System\'\n(All Right Reserved)")},
+				{16.5f, 18.5f, TEXT("to blast the western cave with the luminescene.")},
+				{18.5f, 20.5f, TEXT("Charge a battery, and send it!")}
+			}),
+		 [this]()
+		{APlayerCamera::EnableAllInput(PC);});
+	*/
 }
 
 void AInitLevel::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
-
-	if (!Cam || bSkipTutorialFlowStarted)
+	Super::Tick(DeltaTime);;
+	if(!Cam)
 	{
 		return;
 	}
-
-	if (Cam->CurrentDirectionIndex == 3)
+	if(Cam->CurrentDirectionIndex == 3 && !bSkipTutorialFlowStarted)
 	{
+		APlayerCamera::DisableAllInput(PC);
 		bSkipTutorialFlowStarted = true;
-		PlaySequence(TEXT("SkipTutorialSequencer"), true);
-		ShowSkipTutorial();
+
+		PlaySubtitleTrackById(GetWorld(), CrankItNarrative::Subtitle::Intro_SkipTutorialPrompt, [this]()
+		{
+			bSkipTutorialFlowStarted = true;
+			PlaySequence(TEXT("SkipTutorialSequencer"), true);
+			ShowSkipTutorial();
+		});
+
+		/* LEGACY Intro_SkipTutorialPrompt
+		const TArray<FCrankItSubtitleLine> IntroLines = {
+			{0.f, 2.5f, TEXT("Ah, you must be the new guy.")},
+			{2.5f, 5.f, TEXT("Do you have any idea what you're doing?")},
+		};
+		PlaySubtitleTrack(GetWorld(), IntroLines, [this]()
+		{
+			bSkipTutorialFlowStarted = true;
+			PlaySequence(TEXT("SkipTutorialSequencer"), true);
+			ShowSkipTutorial();
+		});
+		*/
 	}
+	
 }

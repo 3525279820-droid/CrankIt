@@ -3,6 +3,8 @@
 
 #include "PlayerCamera.h"
 
+#include "MineConsole.h"
+#include "Battery.h"
 #include <rapidjson/document.h>
 
 // #include "ToolBuilderUtil.h"
@@ -51,6 +53,39 @@ void APlayerCamera::ApplyExplorationInputMode(APlayerController* PC)
 	PC->bEnableClickEvents = true;
 	PC->bEnableMouseOverEvents = true;
 	FSlateApplication::Get().SetAllUserFocusToGameViewport(EFocusCause::SetDirectly);
+}
+
+void APlayerCamera::DisableAllInput(APlayerController* PC)
+{
+	if (!PC)
+	{
+		return;
+	}
+	if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
+	{
+		Cam->bIsInCinematic = true;
+	}
+	PC->SetInputMode(FInputModeGameOnly());
+	PC->bShowMouseCursor = false;
+	SetExplorationMappingContextEnabled(PC, false);
+	PC->bEnableClickEvents = false;
+	PC->bEnableMouseOverEvents = false;
+	PC->SetCinematicMode(true, true, false, true, true);
+}
+
+void APlayerCamera::EnableAllInput(APlayerController* PC)
+{
+	if (!PC)
+	{
+		return;
+	}
+	if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
+	{
+		Cam->bIsInCinematic = false;
+	}
+	SetExplorationMappingContextEnabled(PC, true);
+	ApplyExplorationInputMode(PC);
+	PC->SetCinematicMode(false, false, false, false, false);
 }
 
 void APlayerCamera::SetExplorationMappingContextEnabled(APlayerController* PC, bool bEnabled)
@@ -141,6 +176,10 @@ void APlayerCamera::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	UpdateBatteryPickupMotion(DeltaTime);
+	if (bLiftSoundDetectorHoldPoint)
+	{
+		UpdateSoundDetectorHoldLift(DeltaTime);
+	}
 
 	FHitResult HitResult;
 
@@ -337,10 +376,20 @@ void APlayerCamera::UpdateCurrentDirection(bool bIsLeft)
 	}
 }
 
-void APlayerCamera::MoveSoundDetectorHoldPointUp(float DeltaTime)
+void APlayerCamera::StartSoundDetectorHoldLift()
+{
+	if (SoundDetectorHoldCurrentLift >= SoundDetectorHoldLiftDistance - KINDA_SMALL_NUMBER)
+	{
+		return;
+	}
+	bLiftSoundDetectorHoldPoint = true;
+}
+
+void APlayerCamera::UpdateSoundDetectorHoldLift(float DeltaTime)
 {
 	if (!SoundDetectorHoldPoint || DeltaTime <= 0.f)
 	{
+		bLiftSoundDetectorHoldPoint = false;
 		return;
 	}
 
@@ -350,4 +399,9 @@ void APlayerCamera::MoveSoundDetectorHoldPointUp(float DeltaTime)
 	const FVector NewRelativeLocation =
 		SoundDetectorHoldBaseRelativeLocation + FVector(0.f, 0.f, SoundDetectorHoldCurrentLift);
 	SoundDetectorHoldPoint->SetRelativeLocation(NewRelativeLocation);
+
+	if (SoundDetectorHoldCurrentLift >= SoundDetectorHoldLiftDistance - KINDA_SMALL_NUMBER)
+	{
+		bLiftSoundDetectorHoldPoint = false;
+	}
 }

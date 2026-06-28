@@ -10,6 +10,7 @@
 #include "SubtitleWidget.generated.h"
 
 class UTextBlock;
+class UImage;
 
 /** 构造时订阅、析构时取消订阅，避免 Subsystem 上挂着已销毁 Widget 的委托。 */
 UCLASS()
@@ -24,7 +25,13 @@ protected:
 	UFUNCTION()
 	void HandleSubtitleLineChanged(FText InSubtitleLine);
 
+	void ApplySubtitleVisibility(bool bShow);
+
 	/** 蓝图里可放同名控件；纯 C++ CreateWidget 时由 NativeConstruct 自动创建。 */
 	UPROPERTY(meta = (BindWidgetOptional))
 	UTextBlock* SubtitleText = nullptr;
+
+	/** WBP 中字幕底栏背景 Image，变量名须与此一致；无字幕时与 SubtitleText 一并隐藏。 */
+	UPROPERTY(meta = (BindWidgetOptional))
+	UImage* SubtitleBackground = nullptr;
 };

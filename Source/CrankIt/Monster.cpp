@@ -3,6 +3,7 @@
 
 #include "Monster.h"
 
+#include "PlayerCamera.h"
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
@@ -29,11 +30,8 @@ void AMonster::BeginPlay()
 {
 	Super::BeginPlay();
 	PlayerActor = Cast<APlayerCamera>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
-	// 随机生成位置
-	SpawnAtRandomDirection(PlayerActor);
+	MonsterBase->SetVisibility(false);
 
-	// 启动定时器
-	GetWorldTimerManager().SetTimer(AdvanceTimerHandle, this, &AMonster::AdvanceTowardsPlayer, AdvanceInterval, true);
 }
 void AMonster::SpawnAtRandomDirection(APlayerCamera* Player)
 {
@@ -107,14 +105,29 @@ void AMonster::Repel()
 void AMonster::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if(!bIsActive && MonsterBase->IsVisible())
+	if(bSpawnable)
 	{
-		MonsterBase->SetVisibility(false);
+		if(!bIsSpawned)
+		{
+			bIsSpawned = true;
+			SpawnAtRandomDirection(PlayerActor);
+		}
+		// 启动定时器
+		if(!bTimerStarted)
+		{
+			GetWorldTimerManager().SetTimer(AdvanceTimerHandle, this, &AMonster::AdvanceTowardsPlayer, AdvanceInterval, true);
+			bTimerStarted = true;
+		}
+		if(!bIsActive && MonsterBase->IsVisible())
+		{
+			MonsterBase->SetVisibility(false);
+		}
+		else if(bIsActive && !MonsterBase->IsVisible())
+		{
+			MonsterBase->SetVisibility(true);
+		}
 	}
-	else if(bIsActive && !MonsterBase->IsVisible())
-	{
-		MonsterBase->SetVisibility(true);
-	}
+
 
 }
 

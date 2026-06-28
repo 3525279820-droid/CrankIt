@@ -3,7 +3,13 @@
 
 #include "MineConsole.h"
 
+#include "InitLevel.h"
 #include "Kismet/GameplayStatics.h"
+#include "SubtitleSubsystem.h"
+#include "PlayerCamera.h"
+#include "GameFramework/PlayerController.h"
+#include "CrankItNarrativeSubsystem.h"
+#include "CrankItNarrativeIds.h"
 
 // Sets default values
 AMineConsole::AMineConsole()
@@ -41,7 +47,6 @@ AMineConsole::AMineConsole()
 	
 		BatterySlots.Add(Slot);
 	}
-	
 }
 
 // Called when the game starts or when spawned
@@ -129,6 +134,169 @@ void AMineConsole::AllLightsOff()
 	CurrentLightIndex = 0;
 }
 
+// 电池充到指定格数时播放对应教程字幕
+void AMineConsole::TryShowChargeTutorialSubtitle(int32 NewChargeLevel)
+{
+	if (bSkipedTutorial || bBatteryFirstCharged)
+	{
+		return;
+	}
+
+	if (NewChargeLevel <= ChargeTutorialLineShownUpTo)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FName TrackId = NAME_None;
+	switch (NewChargeLevel)
+	{
+	case 1:
+		TrackId = CrankItNarrative::Subtitle::ChargeTutorial_Level1;
+		break;
+	case 2:
+		TrackId = CrankItNarrative::Subtitle::ChargeTutorial_Level2;
+		break;
+	case 3:
+		TrackId = CrankItNarrative::Subtitle::ChargeTutorial_Level3;
+		break;
+	default:
+		return;
+	}
+
+	// 按充电格数播放对应教程字幕
+	if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
+	{
+		Narrative->PlaySubtitleTrack(TrackId);
+	}
+
+	/* LEGACY ChargeTutorial
+	TArray<FCrankItSubtitleLine> Lines;
+	switch (NewChargeLevel)
+	{
+	case 1:
+		Lines = {
+			{0.f, 2.5f, TEXT("That's it! Crank it harder!")},
+		};
+		break;
+	case 2:
+		Lines = {
+			{0.f, 2.5f, TEXT("I can tell you've done this before!")},
+		};
+		break;
+	case 3:
+		Lines = {
+			{0.f, 2.5f, TEXT("I bet the boys upstairs love you!")},
+		};
+		break;
+	default:
+		return;
+	}
+	SubtitleSys->PlaySubtitleTrack(Lines);
+	*/
+
+	ChargeTutorialLineShownUpTo = NewChargeLevel;
+	if (NewChargeLevel >= 3)
+	{
+		bBatteryFirstCharged = true;
+	}
+}
+
+// 首次触发 EMP 时播放 Gordon 教程字幕，结束后解锁关卡元素
+void AMineConsole::TryShowLightTutorialSubtitle()
+{
+	if (bSkipedTutorial || bEMPFirstTriggered)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	APlayerController* PC = World->GetFirstPlayerController();
+	if (PC)
+	{
+		APlayerCamera::DisableAllInput(PC);
+	}
+
+	if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
+	{
+		// 字幕播完后恢复输入并准备关卡（怪物、电脑屏幕等）
+		Narrative->PlaySubtitleTrack(CrankItNarrative::Subtitle::EMP_Tutorial, [World]()
+		{
+			if (APlayerController* CallbackPC = World->GetFirstPlayerController())
+			{
+				APlayerCamera::EnableAllInput(CallbackPC);
+				if (APlayerCamera* Cam = Cast<APlayerCamera>(CallbackPC->GetPawn()))
+				{
+					Cam->StartSoundDetectorHoldLift();
+					if (AInitLevel* InitLevel = World->GetAuthGameMode<AInitLevel>())
+					{
+						InitLevel->PrepareLevel();
+					}
+				}
+			}
+		});
+	}
+
+	/* LEGACY EMP_Tutorial
+	const TArray<FCrankItSubtitleLine> Lines = {
+		{0.f, 2.5f, TEXT("Argh, you stupid fucking idiot!")},
+		{2.5f, 3.5f, TEXT("You almost blinded me!")},
+		{3.5f, 4.f, TEXT("Just kidding.")},
+		{4.f, 5.f, TEXT("I'm Gordon.")},
+		{5.f, 6.f, TEXT("The light doesn't bother me.")},
+		{6.f, 7.f, TEXT("I'm sorta just built different.")},
+		{7.f, 8.f, TEXT("Oh, by the way,")},
+		{8.f, 9.f, TEXT("You can use your decibel meter to"
+			"check for sounds in the tunnels.")},
+		{9.f, 10.f, TEXT("It picks up even the smallest of movements!")},
+		{10.f, 10.5f, TEXT("Hmm...")},
+		{10.5f, 11.5f, TEXT("That's Strange!")},
+		{11.5f, 13.5f, TEXT("I'm getting some incredibly large"
+			"seismic activity down there!")},
+		{13.5f, 14.5f, TEXT("Maybe it's your mom?")},
+		{14.5f, 15.f, TEXT("Ha!")},
+		{15.f, 16.5f, TEXT("Mm, ima go check it out.")},
+		{16.5f, 18.5f, TEXT("See you later cranker!")},
+		{18.5f, 20.5f, TEXT("[unintelligible]")},
+	};
+
+	APlayerController* PC = World->GetFirstPlayerController();
+	if (PC)
+	{
+		APlayerCamera::DisableAllInput(PC);
+	}
+
+	SubtitleSys->PlaySubtitleTrack(Lines, [World]()
+	{
+		if (APlayerController* CallbackPC = World->GetFirstPlayerController())
+		{
+			APlayerCamera::EnableAllInput(CallbackPC);
+			if (APlayerCamera* Cam = Cast<APlayerCamera>(CallbackPC->GetPawn()))
+			{
+				Cam->StartSoundDetectorHoldLift();
+				if (AInitLevel* InitLevel = World->GetAuthGameMode<AInitLevel>())
+				{
+					InitLevel->PrepareLevel();
+				}
+			}
+		}
+
+	});
+	*/
+
+	bEMPFirstTriggered = true;
+}
+
 void AMineConsole::ChargeBattery()
 {
 	if (Battery)
@@ -136,6 +304,7 @@ void AMineConsole::ChargeBattery()
 		if(Battery->ChargeProgress < 3)
 		{
 			Battery->ChargeProgress += 1;
+			TryShowChargeTutorialSubtitle(Battery->ChargeProgress);
 			UE_LOG(LogTemp, Display, TEXT("Battery Charging...."))
 			UE_LOG(LogTemp, Display, TEXT("Battery Level: %d"), Battery->ChargeProgress)
 		}
