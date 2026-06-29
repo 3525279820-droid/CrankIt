@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "SubtitleSubsystem.h"
+#include "TerminalCommandRouter.h"
 #include "CrankItNarrativeSubsystem.generated.h"
 
 class UCrankItNarrativeData;
@@ -29,6 +30,9 @@ public:
 	bool GetTerminalOutputLines(FName BlockId, TArray<FString>& OutLines) const;
 
 	bool ApplyTerminalCommandData(TArray<FString>& OutSequence, TMap<FString, TArray<FString>>& OutTextMap) const;
+
+	// 填充 CommandRouter 配置（顺序、文本表、ActionId）；供 TerminalWidget::NativeConstruct 调用
+	bool ApplyTerminalCommandRouterConfig(FTerminalCommandRouterConfig& OutConfig) const;
 
 	UCrankItNarrativeData* GetNarrativeData() const { return NarrativeData; }
 	UCrankItTerminalCommandData* GetTerminalCommandData() const { return TerminalCommandData; }

@@ -34,6 +34,10 @@ public:
 
 	void SetFirstPromptText();
 
+	// 将 Data Asset 中的终端输出块逐行写入 Widget（BlockId 见 CrankItNarrativeIds.h）
+	UFUNCTION(BlueprintCallable, Category = "Terminal")
+	void AppendTerminalBlock(UTerminalWidget* Widget, FName BlockId);
+
 	UPROPERTY(EditAnywhere)
 	float DesendTime = 3.f;
 	

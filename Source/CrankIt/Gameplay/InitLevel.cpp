@@ -34,23 +34,6 @@ namespace
 		}
 	}
 
-	/* LEGACY — 字幕硬编码（已迁至 UCrankItNarrativeData，TrackId 见 CrankItNarrativeIds.h）
-	void PlaySubtitleTrack(
-		UWorld* World,
-		const TArray<FCrankItSubtitleLine>& Lines,
-		TFunction<void()> OnComplete = TFunction<void()>())
-	{
-		if (USubtitleSubsystem* SubtitleSys = World ? World->GetSubsystem<USubtitleSubsystem>() : nullptr)
-		{
-			SubtitleSys->PlaySubtitleTrack(Lines, MoveTemp(OnComplete));
-		}
-		else if (OnComplete)
-		{
-			OnComplete();
-		}
-	}
-	*/
-
 	ALevelSequenceActor* FindLevelSequenceActorByTag(UWorld* World, FName ActorTag)
 	{
 		if (!World || ActorTag.IsNone())
@@ -99,13 +82,6 @@ void AInitLevel::BeginPlay()
 		}
 	}
 
-	// LEGACY 测试字幕 — 已迁至 NarrativeData
-	// const TArray<FCrankItSubtitleLine> IntroLines = {
-	// 	{0.f, 2.5f, TEXT("【字幕测试】第一句（0~2.5 秒）")},
-	// 	{2.5f, 5.f, TEXT("【字幕测试】第二句（2.5~5 秒）")},
-	// };
-	// PlaySubtitleTrack(IntroLines, [this]() {});
-
 	GetWorldTimerManager().SetTimer(
 		DesendTimer,
 		FTimerDelegate::CreateWeakLambda(this, [this]()
@@ -140,13 +116,6 @@ void AInitLevel::OnTutorialClosed()
 	APlayerCamera::ApplyExplorationInputMode(PC);
 
 	PlaySubtitleTrackById(GetWorld(), CrankItNarrative::Subtitle::PostTutorial, [this]() {});
-
-	/* LEGACY PostTutorial
-	const TArray<FCrankItSubtitleLine> PostTutorialLines = {
-		{0.f, 2.5f, TEXT("【字幕测试】教程测试文本2")},
-	};
-	PlaySubtitleTrack(GetWorld(), PostTutorialLines, [this]() {});
-	*/
 }
 
 void AInitLevel::ShowKeyPrompt()
@@ -399,17 +368,6 @@ void AInitLevel::TutorialSkipped()
 	}
 	StopIntroCutsceneAndReturnToGame();
 	PlaySubtitleTrackById(GetWorld(), CrankItNarrative::Subtitle::TutorialSkipped, [this]() {});
-
-	/* LEGACY TutorialSkipped
-	PlaySubtitleTrack(
-		GetWorld(),
-		TArray<FCrankItSubtitleLine>(
-			{
-				{0.f, 2.5f, TEXT("【字幕测试】教程已跳过")}
-		}),
-		 [this]() { }
-		);
-	*/
 }
 
 void AInitLevel::TutorialNotSkipped()
@@ -424,27 +382,6 @@ void AInitLevel::TutorialNotSkipped()
 		{
 			APlayerCamera::EnableAllInput(PC);
 		});
-
-	/* LEGACY TutorialNotSkipped_GordonIntro
-	PlaySubtitleTrack(
-		GetWorld(),
-		TArray<FCrankItSubtitleLine>(
-			{
-				{0.f, 2.5f, TEXT("Hahaha, me neither!")},
-				{2.5f, 3.5f, TEXT("The air down here is as thin as my wallet.")},
-				{3.5f, 5.f, TEXT("Ha!")},
-				{5.f, 7.5f, TEXT("Just kidding. I'm Gordon.")},
-				{7.5f, 10.f, TEXT("I'm a highly trained professional.")},
-				{10.f, 12.5f, TEXT("Uh, Anyways...")},
-				{12.5f, 14.5f, TEXT("I'm gonna need you to use this here state "
-						"of the art machinery.")},
-				{14.5f, 16.5f, TEXT("\'The EMP Light Manifold System\'\n(All Right Reserved)")},
-				{16.5f, 18.5f, TEXT("to blast the western cave with the luminescene.")},
-				{18.5f, 20.5f, TEXT("Charge a battery, and send it!")}
-			}),
-		 [this]()
-		{APlayerCamera::EnableAllInput(PC);});
-	*/
 }
 
 void AInitLevel::Tick(float DeltaTime)
@@ -465,19 +402,6 @@ void AInitLevel::Tick(float DeltaTime)
 			PlaySequence(TEXT("SkipTutorialSequencer"), true);
 			ShowSkipTutorial();
 		});
-
-		/* LEGACY Intro_SkipTutorialPrompt
-		const TArray<FCrankItSubtitleLine> IntroLines = {
-			{0.f, 2.5f, TEXT("Ah, you must be the new guy.")},
-			{2.5f, 5.f, TEXT("Do you have any idea what you're doing?")},
-		};
-		PlaySubtitleTrack(GetWorld(), IntroLines, [this]()
-		{
-			bSkipTutorialFlowStarted = true;
-			PlaySequence(TEXT("SkipTutorialSequencer"), true);
-			ShowSkipTutorial();
-		});
-		*/
 	}
 	
 }

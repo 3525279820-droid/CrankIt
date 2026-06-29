@@ -175,31 +175,6 @@ void AMineConsole::TryShowChargeTutorialSubtitle(int32 NewChargeLevel)
 		Narrative->PlaySubtitleTrack(TrackId);
 	}
 
-	/* LEGACY ChargeTutorial
-	TArray<FCrankItSubtitleLine> Lines;
-	switch (NewChargeLevel)
-	{
-	case 1:
-		Lines = {
-			{0.f, 2.5f, TEXT("That's it! Crank it harder!")},
-		};
-		break;
-	case 2:
-		Lines = {
-			{0.f, 2.5f, TEXT("I can tell you've done this before!")},
-		};
-		break;
-	case 3:
-		Lines = {
-			{0.f, 2.5f, TEXT("I bet the boys upstairs love you!")},
-		};
-		break;
-	default:
-		return;
-	}
-	SubtitleSys->PlaySubtitleTrack(Lines);
-	*/
-
 	ChargeTutorialLineShownUpTo = NewChargeLevel;
 	if (NewChargeLevel >= 3)
 	{
@@ -246,53 +221,6 @@ void AMineConsole::TryShowLightTutorialSubtitle()
 			}
 		});
 	}
-
-	/* LEGACY EMP_Tutorial
-	const TArray<FCrankItSubtitleLine> Lines = {
-		{0.f, 2.5f, TEXT("Argh, you stupid fucking idiot!")},
-		{2.5f, 3.5f, TEXT("You almost blinded me!")},
-		{3.5f, 4.f, TEXT("Just kidding.")},
-		{4.f, 5.f, TEXT("I'm Gordon.")},
-		{5.f, 6.f, TEXT("The light doesn't bother me.")},
-		{6.f, 7.f, TEXT("I'm sorta just built different.")},
-		{7.f, 8.f, TEXT("Oh, by the way,")},
-		{8.f, 9.f, TEXT("You can use your decibel meter to"
-			"check for sounds in the tunnels.")},
-		{9.f, 10.f, TEXT("It picks up even the smallest of movements!")},
-		{10.f, 10.5f, TEXT("Hmm...")},
-		{10.5f, 11.5f, TEXT("That's Strange!")},
-		{11.5f, 13.5f, TEXT("I'm getting some incredibly large"
-			"seismic activity down there!")},
-		{13.5f, 14.5f, TEXT("Maybe it's your mom?")},
-		{14.5f, 15.f, TEXT("Ha!")},
-		{15.f, 16.5f, TEXT("Mm, ima go check it out.")},
-		{16.5f, 18.5f, TEXT("See you later cranker!")},
-		{18.5f, 20.5f, TEXT("[unintelligible]")},
-	};
-
-	APlayerController* PC = World->GetFirstPlayerController();
-	if (PC)
-	{
-		APlayerCamera::DisableAllInput(PC);
-	}
-
-	SubtitleSys->PlaySubtitleTrack(Lines, [World]()
-	{
-		if (APlayerController* CallbackPC = World->GetFirstPlayerController())
-		{
-			APlayerCamera::EnableAllInput(CallbackPC);
-			if (APlayerCamera* Cam = Cast<APlayerCamera>(CallbackPC->GetPawn()))
-			{
-				Cam->StartSoundDetectorHoldLift();
-				if (AInitLevel* InitLevel = World->GetAuthGameMode<AInitLevel>())
-				{
-					InitLevel->PrepareLevel();
-				}
-			}
-		}
-
-	});
-	*/
 
 	bEMPFirstTriggered = true;
 }

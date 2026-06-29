@@ -19,7 +19,7 @@ namespace CrankItNarrative
 		inline const FName EMP_Tutorial(TEXT("EMP_Tutorial"));
 	}
 
-	// 终端输出块 ID（UCrankItTerminalCommandData::OutputBlocks）
+	// 终端输出块 ID（Terminal/Data/CrankItTerminalCommandData::OutputBlocks）
 	namespace Terminal
 	{
 		inline const FName ComputerScreen_Startup(TEXT("ComputerScreen_Startup"));

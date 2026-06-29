@@ -7,7 +7,7 @@
 class UTextBlock;
 class UTerminalWidget;
 
-/** 终端逐行显示与 TextBlock 刷新；不含命令解析或玩法副作用 */
+/** Terminal/Display — 终端逐行显示与 TextBlock 刷新；不含命令解析或玩法副作用 */
 UCLASS()
 class CRANKIT_API UTerminalDisplayController : public UObject
 {

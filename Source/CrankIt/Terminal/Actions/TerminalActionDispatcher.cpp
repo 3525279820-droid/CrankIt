@@ -1,0 +1,232 @@
+#include "TerminalActionDispatcher.h"
+
+#include "TerminalWidget.h"
+#include "TerminalDisplayController.h"
+#include "CrankItNarrativeSubsystem.h"
+#include "CrankItNarrativeIds.h"
+#include "CrankItTerminalActionIds.h"
+#include "DoubleAutoDoor.h"
+#include "FlashTopLight.h"
+#include "Kismet/GameplayStatics.h"
+#include "Monster.h"
+
+// 绑定 Host / Display 并注册全部 ActionId 处理函数
+void UTerminalActionDispatcher::Initialize(UTerminalWidget* InHost, UTerminalDisplayController* InDisplay)
+{
+	Host = InHost;
+	Display = InDisplay;
+	RegisterActions();
+}
+
+// 注册各 ActionId 对应的副作用（迁移自原 TerminalWidget::SetupCommandActions）
+void UTerminalActionDispatcher::RegisterActions()
+{
+	ActionHandlers.Empty();
+
+	ActionHandlers.Add(CrankItTerminalAction::OpenDoor, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (ADoubleAutoDoor* Door = Cast<ADoubleAutoDoor>(UGameplayStatics::GetActorOfClass(GetWorld(), ADoubleAutoDoor::StaticClass())))
+		{
+			Door->DoorOpened();
+		}
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::ClearTerminal, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (Display)
+		{
+			Display->ClearTerminal();
+		}
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::Reboot, [this](const FString& CommandKey, const TMap<FString, TArray<FString>>* CommandTextMap)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		AppendCommandTextFromMap(CommandKey, CommandTextMap);
+
+		Display->StartDisplayingLinesProcedure(3.f, [this]()
+		{
+			// REBOOT 动画结束后：启用怪物生成与顶灯闪烁
+			if (AMonster* Monster = Cast<AMonster>(UGameplayStatics::GetActorOfClass(GetWorld(), AMonster::StaticClass())))
+			{
+				Monster->bSpawnable = true;
+			}
+			if (AFlashTopLight* FlashLight = Cast<AFlashTopLight>(UGameplayStatics::GetActorOfClass(GetWorld(), AFlashTopLight::StaticClass())))
+			{
+				FlashLight->SetIntensity(1000.f);
+				FlashLight->LightStartFlash(.05f, 5);
+			}
+		});
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::ScanAndRepair, [this](const FString& CommandKey, const TMap<FString, TArray<FString>>* CommandTextMap)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		AppendCommandTextFromMap(CommandKey, CommandTextMap);
+		Display->StartDisplayingLines();
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::ScanRepair_Finished);
+		Display->StartDisplayingLinesProcedure(1.f);
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::Boordle, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		Host->StartBoardleGame();
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::Boordle_Started);
+		Display->StartDisplayingLines();
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::EnterClassificationGame, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (Host)
+		{
+			Host->EnterClassificationGame();
+		}
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::Calibrate, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::Calibrate_Started);
+		Display->StartDisplayingLines();
+		Host->EnterCalibrationGame();
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::UpdateSystem, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::UpdateSystem_Warning);
+		Display->StartDisplayingLinesProcedure(5.f);
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::LiftQuarantine, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::LiftQuarantine_Warning);
+		Display->StartDisplayingLinesProcedure(5.f);
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::CalibrateNorthEntryDoor, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Unlocking);
+		Display->StartDisplayingLinesProcedure(15.f);
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Unlocked);
+		Display->StartDisplayingLines();
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_LowAux);
+		Display->StartDisplayingLinesProcedure(5.f);
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Restricted);
+		Display->StartDisplayingLines();
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Countdown30);
+		Display->StartDisplayingLinesProcedure(30.f);
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_UnlockedReady);
+		Display->StartDisplayingLinesProcedure(30.f);
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::GodIsDead, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		TArray<FString> GodLines;
+		if (UWorld* World = GetWorld())
+		{
+			if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
+			{
+				Narrative->GetTerminalOutputLines(CrankItNarrative::Terminal::GodIsDead, GodLines);
+			}
+		}
+		const int32 LineCount = GodLines.Num() > 0 ? GodLines.Num() : 14;
+		for (int32 i = 0; i < LineCount; ++i)
+		{
+			if (GodLines.IsValidIndex(i))
+			{
+				Display->AddPendingLine(GodLines[i]);
+			}
+			else
+			{
+				// Data Asset 未配置时 fallback
+				Display->AddPendingLine(TEXT("GOD IS DEAD"));
+			}
+			Display->StartDisplayingLinesProcedure(1.f);
+		}
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::LiftOperational, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::LiftOperational);
+		Display->StartDisplayingLines();
+	});
+
+	ActionHandlers.Add(CrankItTerminalAction::Ascend, [this](const FString&, const TMap<FString, TArray<FString>>*)
+	{
+		if (!Display || !Host)
+		{
+			return;
+		}
+		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::Ascend_GameOver);
+		Display->StartDisplayingLines();
+	});
+}
+
+// 从 Router 持有的 CommandTextMap 追加同步文案（REBOOT / SCAN AND REPAIR 等）
+void UTerminalActionDispatcher::AppendCommandTextFromMap(
+	const FString& CommandKey,
+	const TMap<FString, TArray<FString>>* CommandTextMap) const
+{
+	if (!Display || !CommandTextMap)
+	{
+		return;
+	}
+	if (const TArray<FString>* Lines = CommandTextMap->Find(CommandKey))
+	{
+		Display->AppendPendingLines(*Lines);
+	}
+}
+
+// 按 ActionId 查找并执行已注册的副作用处理函数
+void UTerminalActionDispatcher::Execute(
+	FName ActionId,
+	const FString& CommandKey,
+	const TMap<FString, TArray<FString>>* CommandTextMap)
+{
+	if (ActionId.IsNone())
+	{
+		return;
+	}
+
+	if (const TFunction<void(const FString&, const TMap<FString, TArray<FString>>*)>* Handler = ActionHandlers.Find(ActionId))
+	{
+		(*Handler)(CommandKey, CommandTextMap);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TerminalActionDispatcher: 未注册的 ActionId '%s'"), *ActionId.ToString());
+	}
+}

@@ -128,3 +128,27 @@ bool UCrankItNarrativeSubsystem::ApplyTerminalCommandData(
 	}
 	return true;
 }
+
+// 从 TerminalCommandData 构建 Router 快照：顺序、CommandTextMap、CommandToActionId、SequenceActionIds
+bool UCrankItNarrativeSubsystem::ApplyTerminalCommandRouterConfig(FTerminalCommandRouterConfig& OutConfig) const
+{
+	RefreshDataFromGameMode();
+
+	if (!TerminalCommandData)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CrankItNarrative: TerminalCommandData not assigned on GameMode."));
+		return false;
+	}
+
+	OutConfig.CommandSequence = TerminalCommandData->CommandSequence;
+	TerminalCommandData->BuildCommandTextMap(OutConfig.CommandTextMap);
+	TerminalCommandData->BuildCommandToActionMap(OutConfig.CommandToActionId);
+	OutConfig.SequenceActionIds = TerminalCommandData->SequenceActionIds;
+
+	if (OutConfig.CommandSequence.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CrankItNarrative: CommandSequence is empty in TerminalCommandData."));
+		return false;
+	}
+	return true;
+}

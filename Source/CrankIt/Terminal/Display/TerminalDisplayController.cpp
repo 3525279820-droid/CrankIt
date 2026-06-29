@@ -30,8 +30,6 @@ void UTerminalDisplayController::StartDisplayingLinesProcedure(float Delay, TFun
 		return;
 	}
 
-	UE_LOG(LogTemp, Display, TEXT("rebooting"));
-
 	ProcedureOnComplete = MoveTemp(OnProcedureComplete);
 
 	// 与原先 TerminalWidget 一致：Delay 参数未用于初始等待，固定 3 秒后再 StartDisplayingLines

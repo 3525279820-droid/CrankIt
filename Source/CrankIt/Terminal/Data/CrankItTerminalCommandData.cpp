@@ -6,7 +6,7 @@ FPrimaryAssetId UCrankItTerminalCommandData::GetPrimaryAssetId() const
 	return FPrimaryAssetId(TEXT("CrankItTerminalCommand"), GetFName());
 }
 
-// 将 CommandTextEntries 转为运行时 TMap，供 CommitInput 查询
+// 将 CommandTextEntries 转为运行时 TMap，供 Router 查询纯文本命令
 void UCrankItTerminalCommandData::BuildCommandTextMap(TMap<FString, TArray<FString>>& OutMap) const
 {
 	OutMap.Empty();
@@ -15,6 +15,19 @@ void UCrankItTerminalCommandData::BuildCommandTextMap(TMap<FString, TArray<FStri
 		if (!Entry.Command.IsEmpty())
 		{
 			OutMap.Add(Entry.Command, Entry.Lines);
+		}
+	}
+}
+
+// 将 CommandActionEntries 转为运行时 TMap，供 Router 解析 ActionId
+void UCrankItTerminalCommandData::BuildCommandToActionMap(TMap<FString, FName>& OutMap) const
+{
+	OutMap.Empty();
+	for (const FCrankItTerminalCommandActionEntry& Entry : CommandActionEntries)
+	{
+		if (!Entry.Command.IsEmpty() && !Entry.ActionId.IsNone())
+		{
+			OutMap.Add(Entry.Command, Entry.ActionId);
 		}
 	}
 }
