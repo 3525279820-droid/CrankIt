@@ -4,23 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "SubtitleSubsystem.h"
-#include "LevelSequenceActor.h"
-#include "SDTutorialWidget.h"
-#include "SkipTutorialWidget.h"
-#include "Tunnel.h"
-#include "ComputerScreenActor.h"
 #include "InitLevel.generated.h"
 
-class ULevelSequencePlayer;
-class APlayerController;
-class APlayerCamera;
-class AMonster;
 class UCrankItNarrativeData;
 class UCrankItTerminalCommandData;
+class USDTutorialWidget;
+class UCrankItIntroFlowSubsystem;
 
 /**
- * 
+ * 初始关卡 GameMode：仅保留编辑器可配项，并启动 UCrankItIntroFlowSubsystem。
+ * 开场 / 教程 / 过场逻辑见 Gameplay/CrankItIntroFlowSubsystem。
  */
 UCLASS()
 class CRANKIT_API AInitLevel : public AGameModeBase
@@ -33,39 +26,10 @@ public:
 private:
 	virtual void BeginPlay() override;
 
-	UFUNCTION()
-	void OnLevelSequenceFinished();
-
-	void CleanupIntroUIAndRestoreGameplay();
-
-	TWeakObjectPtr<ULevelSequencePlayer> BoundIntroSequencePlayer;
-
-	/** 当前绑定的过场是否为无限循环；循环时不应响应 OnFinished 恢复玩家相机。 */
-	bool bBoundSequenceLoops = false;
-
-	UPROPERTY()
-	AComputerScreenActor* ComputerScreen = nullptr;
-
-	/** 播完后暂停在最后一帧，等待外部（如 Skip UI）再 Stop。 */
-	bool bBoundSequenceHoldAtEnd = false;
-
-	UPROPERTY()
-	APlayerController* PC = nullptr;
-
-	UPROPERTY()
-	APlayerCamera* Cam = nullptr;
-
-	UPROPERTY()
-	USkipTutorialWidget* Skt = nullptr;
-
-	bool bSkipTutorialFlowStarted = false;
-
-	virtual void Tick(float DeltaTime) override;
-
-	
 public:
 	UFUNCTION()
 	void OnTutorialClosed();
+
 	void ShowKeyPrompt();
 
 	UFUNCTION()
@@ -73,32 +37,23 @@ public:
 
 	UFUNCTION()
 	void TutorialNotSkipped();
-	
-	/** 按关卡中 Level Sequence Actor 的 Tag 播放过场；bLoop 为 true 时无限循环；bHoldAtEndUntilStopped 为 true 时播完停在末帧且不自动恢复输入。 */
+
+	/** 按关卡中 Level Sequence Actor 的 Tag 播放过场（转发至 IntroFlowSubsystem）。 */
 	void PlaySequence(FName SequenceTag, bool bLoop);
-	
+
 	void SetFirstComputerScreenText();
-
 	void ShowTutorial();
-
 	void ShowSkipTutorial();
 
+	/** EMP 教程结束后由 MineConsole 等调用，解锁怪物与电脑屏幕。 */
 	void PrepareLevel();
 
-	/** 跳过教程 / 继续教程：停过场、关 UI、恢复操作与 EI（当前两者行为一致，后续可再分支）。 */
 	void StopIntroCutsceneAndReturnToGame();
 
 	/** 教程 Widget 类列表（须继承 USDTutorialWidget）；按顺序显示，关闭后索引自增。 */
 	UPROPERTY(EditAnywhere, Category="Tutorial")
 	TArray<TSubclassOf<USDTutorialWidget>> TutorialWidgetClasses;
 
-	UPROPERTY()
-	USDTutorialWidget* TutorialWidget = nullptr;
-
-	int32 CurrentTutorialIndex = 0;
-
-	FTimerHandle DesendTimer;
-	FTimerHandle PauseAtEndTimer;
 	UPROPERTY(EditAnywhere)
 	float DesendTime = 10.f;
 
@@ -114,6 +69,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Narrative")
 	TObjectPtr<UCrankItTerminalCommandData> TerminalCommandData;
 
-	AMonster* Monster = nullptr;
-
+private:
+	UCrankItIntroFlowSubsystem* GetIntroFlow() const;
 };

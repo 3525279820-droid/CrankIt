@@ -21,6 +21,9 @@
 class AMineConsole;
 class ABattery;
 
+/** 玩家朝向索引变化时广播；IntroFlow 等可订阅，避免 GameMode Tick 轮询。 */
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnPlayerDirectionChanged, int32);
+
 UCLASS()
 class CRANKIT_API APlayerCamera : public APawn
 {
@@ -134,6 +137,9 @@ public:
 	TArray<FString> Directions = {"North", "East", "South", "West"};
 
 	void UpdateCurrentDirection(bool bIsLeft);
+
+	/** 朝向索引变化；IntroFlow 订阅后触发 Skip 教程流程。 */
+	FOnPlayerDirectionChanged OnDirectionChanged;
 
 protected:
 	// Called when the game starts or when spawned

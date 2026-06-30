@@ -374,6 +374,9 @@ void APlayerCamera::UpdateCurrentDirection(bool bIsLeft)
 			CurrentDirectionIndex--;
 		}
 	}
+
+	// 供 UCrankItIntroFlowSubsystem 订阅，替代 GameMode Tick 轮询朝向索引
+	OnDirectionChanged.Broadcast(CurrentDirectionIndex);
 }
 
 void APlayerCamera::StartSoundDetectorHoldLift()

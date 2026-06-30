@@ -1,6 +1,6 @@
 #pragma once
 
-// 叙事服务台：统一从 Data Asset 读取字幕与终端文案，并转发给 USubtitleSubsystem
+// 统一从 Data Asset 读取字幕与终端文案，并转发给 USubtitleSubsystem
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
