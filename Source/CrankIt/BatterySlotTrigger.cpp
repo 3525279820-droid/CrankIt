@@ -4,7 +4,9 @@
 #include "BatterySlotTrigger.h"
 
 #include "Battery.h"
-#include "PlayerCamera.h"
+#include "Player/BatteryHoldComponent.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
 #include "TimerManager.h"
 
 namespace
@@ -55,10 +57,13 @@ void UBatterySlotTrigger::TickComponent(float DeltaTime, ELevelTick TickType, FA
 	UpdateBatteryReturnMotion(DeltaTime);
 }
 
+// 槽位点击：从 Pawn 的 BatteryHoldComponent 取回电池并开始放回插值
 void UBatterySlotTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
-	APlayerCamera* Player = Cast<APlayerCamera>(GetWorld()->GetFirstPlayerController()->GetPawn());
-	if (!Player)
+	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	UBatteryHoldComponent* HoldComp = Pawn ? Pawn->FindComponentByClass<UBatteryHoldComponent>() : nullptr;
+	if (!HoldComp)
 	{
 		return;
 	}
@@ -68,11 +73,10 @@ void UBatterySlotTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent,
 		return;
 	}
 
-	ABattery* HeldBattery = Player->HoldBattery;
+	ABattery* HeldBattery = HoldComp->ReleaseHeldBattery();
 	if (HeldBattery && HeldBattery->RootComp)
 	{
 		ReturningBattery = HeldBattery;
-		Player->HoldBattery = nullptr;
 
 		BatteryReturnStartLoc = HeldBattery->RootComp->GetComponentLocation();
 		BatteryReturnStartQuat = HeldBattery->RootComp->GetComponentQuat();

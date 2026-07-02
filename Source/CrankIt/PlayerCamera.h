@@ -19,9 +19,10 @@
 #include "PlayerCamera.generated.h"
 
 class AMineConsole;
-class ABattery;
+class UPlayerInteractionComponent;
+class UBatteryHoldComponent;
 
-/** 玩家朝向索引变化时广播；IntroFlow 等可订阅，避免 GameMode Tick 轮询。 */
+// 玩家朝向索引变化时广播；IntroFlow 等可订阅，避免 GameMode Tick 轮询
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPlayerDirectionChanged, int32);
 
 UCLASS()
@@ -44,16 +45,10 @@ public:
 
 	void ExitScreenInput(const FInputActionValue& value);
 
-	void PickBattery();
-	
+	// 以下四个静态方法转发至 UCrankItInputModeService，保留旧调用点兼容
 	static void ApplyExplorationInputMode(APlayerController* PC);
-
 	static void SetExplorationMappingContextEnabled(APlayerController* PC, bool bEnabled);
-
-	/** 教程/字幕期间：关闭探索操作（过场模式、无鼠标点击）。 */
 	static void DisableAllInput(APlayerController* PC);
-
-	/** 教程/字幕结束后：恢复探索操作。 */
 	static void EnableAllInput(APlayerController* PC);
 	
 	UPROPERTY(VisibleAnywhere)
@@ -81,10 +76,14 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	USceneComponent* BatteryHoldPoint;
 
-	/** 拾起时线性插值：Alpha 每秒增加量（1 ≈ 约 1 秒从起点到当前挂点） */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battery|Pickup")
-	float BatteryPickupLerpSpeed = 2.f;
-	
+	// 鼠标悬停检测（ChargeHandle / Battery 拾取目标）
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Interaction")
+	UPlayerInteractionComponent* InteractionComponent = nullptr;
+
+	// 电池拾取、持有与挂点跟随
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Battery")
+	UBatteryHoldComponent* BatteryHoldComponent = nullptr;
+
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputMappingContext* DefaultMappingContext;
 
@@ -117,17 +116,8 @@ public:
 	
 	FRotator DeltaRotation = FRotator::ZeroRotator;
 
-	APlayerController* PlayerController;
-
-	APlayerController* PlayerControllerRef;
-
-	AMineConsole* MineConsole;
-
-	ABattery* TargetBattery;
-
-	ABattery* HoldBattery;
-
-	FTimerHandle SequenceTimer;
+	// IntroFlow / LightTrigger 等仍经此读取；实际由 InteractionComponent 缓存
+	AMineConsole* MineConsole = nullptr;
 
 	bool bIsInCinematic = false;
 
@@ -138,7 +128,6 @@ public:
 
 	void UpdateCurrentDirection(bool bIsLeft);
 
-	/** 朝向索引变化；IntroFlow 订阅后触发 Skip 教程流程。 */
 	FOnPlayerDirectionChanged OnDirectionChanged;
 
 protected:
@@ -154,13 +143,4 @@ protected:
 	bool bLiftSoundDetectorHoldPoint = false;
 
 	void UpdateSoundDetectorHoldLift(float DeltaTime);
-
-	/** 交互后正平滑移向 BatteryHoldPoint，到位后写入 HoldBattery */
-	ABattery* BatteryMovingToHold = nullptr;
-
-	FVector BatteryPickupStartLoc = FVector::ZeroVector;
-	FQuat BatteryPickupStartQuat = FQuat::Identity;
-	float BatteryPickupMoveAlpha = 0.f;
-
-	void UpdateBatteryPickupMotion(float DeltaTime);
 };

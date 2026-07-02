@@ -1,27 +1,13 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "PlayerCamera.h"
 
-#include "MineConsole.h"
-#include "Battery.h"
-#include <rapidjson/document.h>
-
-// #include "ToolBuilderUtil.h"
+#include "Input/CrankItInputModeService.h"
+#include "Player/PlayerInteractionComponent.h"
+#include "Player/BatteryHoldComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "GameFramework/PlayerController.h"
-#include "Kismet/GameplayStatics.h"
-#include "SubtitleSubsystem.h"
-#include "Misc/Paths.h"
-#include "Misc/FileHelper.h"
-#include "Misc/DateTime.h"
-#include "HAL/FileManager.h"
-#include "Framework/Application/SlateApplication.h"
 
-// Sets default values
 APlayerCamera::APlayerCamera()
 {
- 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
 	SetRootComponent(SpringArmComp);
@@ -34,91 +20,47 @@ APlayerCamera::APlayerCamera()
 
 	SoundDetectorHoldPoint = CreateDefaultSubobject<USceneComponent>(TEXT("SoundDetectorHoldPoint"));
 	SoundDetectorHoldPoint->SetupAttachment(CameraComp);
-	
+
+	InteractionComponent = CreateDefaultSubobject<UPlayerInteractionComponent>(TEXT("InteractionComponent"));
+	BatteryHoldComponent = CreateDefaultSubobject<UBatteryHoldComponent>(TEXT("BatteryHoldComponent"));
 }
 
+// 转发至 UCrankItInputModeService（探索阶段默认输入）
 void APlayerCamera::ApplyExplorationInputMode(APlayerController* PC)
 {
-	if (!PC)
+	if (UCrankItInputModeService* Service = UCrankItInputModeService::GetFromController(PC))
 	{
-		return;
+		Service->ApplyExplorationInputMode(PC);
 	}
-	// GameOnly + 可见鼠标时，左键常在 Slate 视口与「世界点击 / EI」之间被反复吞掉（全程如此，非仅开局）。
-	// GameAndUI 且不指定 WidgetToFocus：仍把输入交给游戏，同时让鼠标按下能稳定参与 Hit/Click。
-	FInputModeGameAndUI Mode;
-	Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	Mode.SetHideCursorDuringCapture(false);
-	PC->SetInputMode(Mode);
-	PC->bShowMouseCursor = true;
-	PC->bEnableClickEvents = true;
-	PC->bEnableMouseOverEvents = true;
-	FSlateApplication::Get().SetAllUserFocusToGameViewport(EFocusCause::SetDirectly);
 }
 
+// 转发至 UCrankItInputModeService（教程/过场期间关输入）
 void APlayerCamera::DisableAllInput(APlayerController* PC)
 {
-	if (!PC)
+	if (UCrankItInputModeService* Service = UCrankItInputModeService::GetFromController(PC))
 	{
-		return;
+		Service->DisableAllInput(PC);
 	}
-	if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
-	{
-		Cam->bIsInCinematic = true;
-	}
-	PC->SetInputMode(FInputModeGameOnly());
-	PC->bShowMouseCursor = false;
-	SetExplorationMappingContextEnabled(PC, false);
-	PC->bEnableClickEvents = false;
-	PC->bEnableMouseOverEvents = false;
-	PC->SetCinematicMode(true, true, false, true, true);
 }
 
+// 转发至 UCrankItInputModeService（教程/过场结束后恢复输入）
 void APlayerCamera::EnableAllInput(APlayerController* PC)
 {
-	if (!PC)
+	if (UCrankItInputModeService* Service = UCrankItInputModeService::GetFromController(PC))
 	{
-		return;
+		Service->EnableAllInput(PC);
 	}
-	if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
-	{
-		Cam->bIsInCinematic = false;
-	}
-	SetExplorationMappingContextEnabled(PC, true);
-	ApplyExplorationInputMode(PC);
-	PC->SetCinematicMode(false, false, false, false, false);
 }
 
+// 转发至 UCrankItInputModeService（Enhanced Input 映射开关）
 void APlayerCamera::SetExplorationMappingContextEnabled(APlayerController* PC, bool bEnabled)
 {
-	if (!PC)
+	if (UCrankItInputModeService* Service = UCrankItInputModeService::GetFromController(PC))
 	{
-		return;
-	}
-	APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn());
-	if (!Cam || !Cam->DefaultMappingContext)
-	{
-		return;
-	}
-	ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
-	if (!LocalPlayer)
-	{
-		return;
-	}
-	if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
-			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
-	{
-		if (bEnabled)
-		{
-			Subsystem->AddMappingContext(Cam->DefaultMappingContext, 0);
-		}
-		else
-		{
-			Subsystem->RemoveMappingContext(Cam->DefaultMappingContext);
-		}
+		Service->SetExplorationMappingContextEnabled(PC, bEnabled);
 	}
 }
 
-// Called when the game starts or when spawned
 void APlayerCamera::BeginPlay()
 {
 	Super::BeginPlay();
@@ -129,12 +71,21 @@ void APlayerCamera::BeginPlay()
 		SoundDetectorHoldCurrentLift = 0.f;
 	}
 
-	PlayerController = Cast<APlayerController>(Controller);
-	if (PlayerController)
+	if (BatteryHoldComponent && BatteryHoldPoint)
 	{
-		ApplyExplorationInputMode(PlayerController);
+		BatteryHoldComponent->Initialize(BatteryHoldPoint);
+	}
 
-		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer())
+	if (InteractionComponent)
+	{
+		MineConsole = InteractionComponent->GetMineConsole();
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(Controller))
+	{
+		ApplyExplorationInputMode(PC);
+
+		if (ULocalPlayer* LocalPlayer = PC->GetLocalPlayer())
 		{
 			if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
 					ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
@@ -145,169 +96,48 @@ void APlayerCamera::BeginPlay()
 				}
 			}
 		}
-	}
-	PlayerControllerRef = Cast<APlayerController>(APawn::GetController());
 
-	TArray<AActor*> Found;
-	MineConsole = Cast<AMineConsole>(
-		UGameplayStatics::GetActorOfClass(GetWorld(), AMineConsole::StaticClass()));
-
-		
-	if (PlayerController)
-	{
 		if (SubtitleWidgetClass)
 		{
-			SubtitlesWidget = CreateWidget<USubtitleWidget>(PlayerController, SubtitleWidgetClass);
+			SubtitlesWidget = CreateWidget<USubtitleWidget>(PC, SubtitleWidgetClass);
 		}
 		else
 		{
-			SubtitlesWidget = CreateWidget<USubtitleWidget>(PlayerController);
+			SubtitlesWidget = CreateWidget<USubtitleWidget>(PC);
 		}
 		if (SubtitlesWidget)
 		{
 			SubtitlesWidget->AddToPlayerScreen(200);
 		}
 	}
-	
 }
 
-// Called every frame
 void APlayerCamera::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	UpdateBatteryPickupMotion(DeltaTime);
 	if (bLiftSoundDetectorHoldPoint)
 	{
 		UpdateSoundDetectorHoldLift(DeltaTime);
 	}
-
-	FHitResult HitResult;
-
-	if (PlayerControllerRef)
-	{
-		PlayerControllerRef->GetHitResultUnderCursor(
-			ECollisionChannel::ECC_Visibility,
-			false,
-			HitResult
-		);
-		DrawDebugSphere(
-			GetWorld(),
-			HitResult.ImpactPoint,
-			25.f,
-			12,
-			FColor::Red,
-			false,
-			-1.f
-		);
-
-		if (HoldBattery)
-		{
-			HoldBattery->RootComp->SetWorldLocation(BatteryHoldPoint->GetComponentLocation());
-			HoldBattery->RootComp->SetWorldRotation(BatteryHoldPoint->GetComponentRotation());
-		}
-	}
-
-	//检查鼠标指向对象
-	
-	UPrimitiveComponent* HitComp = HitResult.GetComponent();
-	if(bIsInCinematic)
-	{
-		MineConsole->ShouldRotate = false;
-	}
-	
-	if(not bIsInCinematic and HitComp)
-	{
-
-		if(HitComp->ComponentHasTag("ChargeHandle"))
-		{
-			if(MineConsole)
-			{
-				MineConsole->ShouldRotate = true;
-			}	
-		}
-
-		else if(HitComp->ComponentHasTag("Battery"))
-		{
-			if(not HoldBattery and not BatteryMovingToHold)
-			{
-				TargetBattery = Cast<ABattery>(HitComp->GetOwner());
-			}
-		}
-		else
-		{
-			if(MineConsole)
-			{
-				MineConsole->ShouldRotate = false;
-				TargetBattery = nullptr;
-			}
-		}
-	}
 }
 
-
-
-// Called to bind functionality to input
 void APlayerCamera::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
-	if(EIC) {
+	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent))
+	{
 		EIC->BindAction(TurnAction, ETriggerEvent::Started, this, &APlayerCamera::TurnInput);
 		EIC->BindAction(IntereactAction, ETriggerEvent::Started, this, &APlayerCamera::InteractInput);
 		EIC->BindAction(ExitScreen, ETriggerEvent::Started, this, &APlayerCamera::ExitScreenInput);
 	}
 }
 
-
+// 交互键：从 InteractionComponent 取悬停电池，交给 BatteryHoldComponent 拾取
 void APlayerCamera::InteractInput(const FInputActionValue& InputActionValue)
 {
-	if (TargetBattery and not HoldBattery and not BatteryMovingToHold)
+	if (BatteryHoldComponent && InteractionComponent)
 	{
-		BatteryMovingToHold = TargetBattery;
-		if (BatteryMovingToHold->RootComp)
-		{
-			BatteryPickupStartLoc = BatteryMovingToHold->RootComp->GetComponentLocation();
-			BatteryPickupStartQuat = BatteryMovingToHold->RootComp->GetComponentQuat();
-			BatteryPickupMoveAlpha = 0.f;
-		}
-		TargetBattery = nullptr;
-	}
-}
-
-void APlayerCamera::UpdateBatteryPickupMotion(float DeltaTime)
-{
-	if (!BatteryMovingToHold || !BatteryHoldPoint)
-	{
-		return;
-	}
-	if (!IsValid(BatteryMovingToHold) || !BatteryMovingToHold->RootComp)
-	{
-		BatteryMovingToHold = nullptr;
-		return;
-	}
-
-	if (DeltaTime <= 0.f)
-	{
-		return;
-	}
-
-	USceneComponent* Root = BatteryMovingToHold->RootComp;
-	const FVector TargetLoc = BatteryHoldPoint->GetComponentLocation();
-	const FQuat TargetQuat = BatteryHoldPoint->GetComponentQuat();
-
-	const float Rate = FMath::Max(BatteryPickupLerpSpeed, KINDA_SMALL_NUMBER);
-	BatteryPickupMoveAlpha = FMath::Clamp(BatteryPickupMoveAlpha + DeltaTime * Rate, 0.f, 1.f);
-
-	const FVector NewLoc = FMath::Lerp(BatteryPickupStartLoc, TargetLoc, BatteryPickupMoveAlpha);
-	const FQuat NewQuat = FQuat::Slerp(BatteryPickupStartQuat, TargetQuat, BatteryPickupMoveAlpha);
-	Root->SetWorldLocationAndRotation(NewLoc, NewQuat);
-
-	if (BatteryPickupMoveAlpha >= 1.f - KINDA_SMALL_NUMBER)
-	{
-		Root->SetWorldLocationAndRotation(TargetLoc, TargetQuat);
-		HoldBattery = BatteryMovingToHold;
-		BatteryMovingToHold = nullptr;
-		BatteryPickupMoveAlpha = 0.f;
+		BatteryHoldComponent->TryPickup(InteractionComponent->GetTargetBattery());
 	}
 }
 
@@ -318,7 +148,7 @@ void APlayerCamera::TurnInput(const FInputActionValue& value)
 		return;
 	}
 	const float InputValue = value.Get<float>();
-	if(InputValue > 0)
+	if (InputValue > 0)
 	{
 		UpdateCurrentDirection(true);
 	}
@@ -326,35 +156,31 @@ void APlayerCamera::TurnInput(const FInputActionValue& value)
 	{
 		UpdateCurrentDirection(false);
 	}
-	FRotator TargetRotation = FRotator::ZeroRotator;
 
+	FRotator TargetRotation = FRotator::ZeroRotator;
 	DeltaRotation.Yaw = InputValue * 90.f;
 	TargetRotation.Yaw = SpringArmComp->GetComponentRotation().Yaw + DeltaRotation.Yaw;
-	
 	SpringArmComp->SetWorldRotation(TargetRotation);
 }
 
 void APlayerCamera::ExitScreenInput(const FInputActionValue& value)
 {
-	if (OriginalViewTarget)
+	if (!OriginalViewTarget)
 	{
-		APlayerController* PC = GetWorld()->GetFirstPlayerController();
-
-		PC->SetViewTargetWithBlend(OriginalViewTarget, .5f, VTBlend_Cubic);
-		OriginalViewTarget = nullptr; // 清空，避免重复
+		return;
 	}
-}
-
-
-void APlayerCamera::PickBattery()
-{
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		PC->SetViewTargetWithBlend(OriginalViewTarget, .5f, VTBlend_Cubic);
+	}
+	OriginalViewTarget = nullptr;
 }
 
 void APlayerCamera::UpdateCurrentDirection(bool bIsLeft)
 {
-	if(bIsLeft)
+	if (bIsLeft)
 	{
-		if(CurrentDirectionIndex + 1 >= Directions.Num())
+		if (CurrentDirectionIndex + 1 >= Directions.Num())
 		{
 			CurrentDirectionIndex = 0;
 		}
@@ -365,7 +191,7 @@ void APlayerCamera::UpdateCurrentDirection(bool bIsLeft)
 	}
 	else
 	{
-		if(CurrentDirectionIndex - 1 < 0)
+		if (CurrentDirectionIndex - 1 < 0)
 		{
 			CurrentDirectionIndex = Directions.Num() - 1;
 		}
@@ -375,7 +201,6 @@ void APlayerCamera::UpdateCurrentDirection(bool bIsLeft)
 		}
 	}
 
-	// 供 UCrankItIntroFlowSubsystem 订阅，替代 GameMode Tick 轮询朝向索引
 	OnDirectionChanged.Broadcast(CurrentDirectionIndex);
 }
 
