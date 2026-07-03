@@ -70,7 +70,7 @@ public:
 
 	ABattery* Battery;
 
-	TArray<AActor*> Batteries;
+	TArray<ABattery*> Batteries;
 
 	
 

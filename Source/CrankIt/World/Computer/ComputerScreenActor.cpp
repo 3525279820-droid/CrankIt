@@ -5,8 +5,8 @@
 
 #include "PlayerCamera.h"
 #include "Camera/CameraActor.h"
-#include "Kismet/GameplayStatics.h"
 #include "Framework/Application/SlateApplication.h"
+#include "CrankItActorRegistry.h"
 #include "GameFramework/PlayerController.h"
 #include "CrankItNarrativeSubsystem.h"
 #include "CrankItNarrativeIds.h"
@@ -40,11 +40,13 @@ void AComputerScreenActor::BeginPlay()
 		// 初始状态下禁止获得焦点，只有切到电脑视角时才允许
 		TerminalWidget->SetIsFocusable(false);
 	}
-	FixedCamera = Cast<ACameraActor>(
-	UGameplayStatics::GetActorOfClass(GetWorld(), ACameraActor::StaticClass())
-);
-		
-	// 切换摄像机
+
+	// 经 ActorRegistry 取固定视角相机（点击屏幕时切换 ViewTarget）
+	if (UCrankItActorRegistry* Reg = GetWorld()->GetSubsystem<UCrankItActorRegistry>())
+	{
+		FixedCamera = Reg->GetFixedCamera();
+	}
+
 	PC = GetWorld()->GetFirstPlayerController();
 
 	// ComputerScreen_Startup 已移至 UTerminalWidget::NativeConstruct 作为默认初始文案
@@ -58,6 +60,7 @@ void AComputerScreenActor::BeginPlay()
 	);
 }
 
+// 从 NarrativeSubsystem 读取终端输出块并追加到 Widget
 void AComputerScreenActor::AppendTerminalBlock(UTerminalWidget* Widget, FName BlockId)
 {
 	UWorld* World = GetWorld();

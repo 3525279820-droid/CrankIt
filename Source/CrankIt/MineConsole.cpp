@@ -5,6 +5,7 @@
 
 #include "InitLevel.h"
 #include "Kismet/GameplayStatics.h"
+#include "CrankItActorRegistry.h"
 #include "SubtitleSubsystem.h"
 #include "PlayerCamera.h"
 #include "GameFramework/PlayerController.h"
@@ -49,17 +50,21 @@ AMineConsole::AMineConsole()
 	}
 }
 
-// Called when the game starts or when spawned
+// BeginPlay：启动充电灯序列，经 ActorRegistry 取电池并对齐到槽位
 void AMineConsole::BeginPlay()
 {
 	Super::BeginPlay();
 
 	StartLightingOffSequence();
 
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABattery::StaticClass(), Batteries);
+	// 经 ActorRegistry 取关卡内全部 ABattery
+	if (UCrankItActorRegistry* Reg = GetWorld()->GetSubsystem<UCrankItActorRegistry>())
+	{
+		Reg->GetAllBatteries(Batteries);
+	}
 
 	for(int32 i = 0; i < 3; i++){
-		Battery = Cast<ABattery>(Batteries[i]);
+		Battery = Batteries.IsValidIndex(i) ? Batteries[i] : nullptr;
 		if(Battery){
 			Battery->RootComp->SetWorldLocation(BatterySlots[i]->GetComponentLocation());
 			Battery->RootComp->SetWorldRotation(BatterySlots[i]->GetComponentRotation());
@@ -239,13 +244,17 @@ void AMineConsole::ChargeBattery()
 	}
 }
 
+// 灯灭后检查前三块电池是否需要充电（经 ActorRegistry 刷新列表）
 void AMineConsole::CheckNeedCharge()
 {
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABattery::StaticClass(), Batteries);
+	if (UCrankItActorRegistry* Reg = GetWorld()->GetSubsystem<UCrankItActorRegistry>())
+	{
+		Reg->GetAllBatteries(Batteries);
+	}
 
 	for(int32 i = 0; i < 3; i++)
 	{
-		Battery = Cast<ABattery>(Batteries[i]);
+		Battery = Batteries.IsValidIndex(i) ? Batteries[i] : nullptr;
 		if(Battery && Battery->ChargeProgress < 3 && Battery->canCharge){
 			ChargeBattery();
 			break;

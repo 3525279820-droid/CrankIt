@@ -7,8 +7,8 @@
 #include "CrankItTerminalActionIds.h"
 #include "DoubleAutoDoor.h"
 #include "FlashTopLight.h"
-#include "Kismet/GameplayStatics.h"
 #include "Monster.h"
+#include "CrankItActorRegistry.h"
 
 // 绑定 Host / Display 并注册全部 ActionId 处理函数
 void UTerminalActionDispatcher::Initialize(UTerminalWidget* InHost, UTerminalDisplayController* InDisplay)
@@ -25,9 +25,13 @@ void UTerminalActionDispatcher::RegisterActions()
 
 	ActionHandlers.Add(CrankItTerminalAction::OpenDoor, [this](const FString&, const TMap<FString, TArray<FString>>*)
 	{
-		if (ADoubleAutoDoor* Door = Cast<ADoubleAutoDoor>(UGameplayStatics::GetActorOfClass(GetWorld(), ADoubleAutoDoor::StaticClass())))
+		// 经 ActorRegistry 触发双开门
+		if (UCrankItActorRegistry* Reg = GetWorld()->GetSubsystem<UCrankItActorRegistry>())
 		{
-			Door->DoorOpened();
+			if (ADoubleAutoDoor* Door = Reg->GetDoubleAutoDoor())
+			{
+				Door->DoorOpened();
+			}
 		}
 	});
 
@@ -49,15 +53,18 @@ void UTerminalActionDispatcher::RegisterActions()
 
 		Display->StartDisplayingLinesProcedure(3.f, [this]()
 		{
-			// REBOOT 动画结束后：启用怪物生成与顶灯闪烁
-			if (AMonster* Monster = Cast<AMonster>(UGameplayStatics::GetActorOfClass(GetWorld(), AMonster::StaticClass())))
+			// REBOOT 动画结束后经 ActorRegistry 启用怪物生成与顶灯闪烁
+			if (UCrankItActorRegistry* Reg = GetWorld()->GetSubsystem<UCrankItActorRegistry>())
 			{
-				Monster->bSpawnable = true;
-			}
-			if (AFlashTopLight* FlashLight = Cast<AFlashTopLight>(UGameplayStatics::GetActorOfClass(GetWorld(), AFlashTopLight::StaticClass())))
-			{
-				FlashLight->SetIntensity(1000.f);
-				FlashLight->LightStartFlash(.05f, 5);
+				if (AMonster* Monster = Reg->GetMonster())
+				{
+					Monster->bSpawnable = true;
+				}
+				if (AFlashTopLight* FlashLight = Reg->GetFlashTopLight())
+				{
+					FlashLight->SetIntensity(1000.f);
+					FlashLight->LightStartFlash(.05f, 5);
+				}
 			}
 		});
 	});

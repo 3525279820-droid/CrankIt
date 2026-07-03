@@ -13,6 +13,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
+#include "CrankItActorRegistry.h"
 #include "CrankItNarrativeSubsystem.h"
 #include "CrankItNarrativeIds.h"
 
@@ -127,7 +128,9 @@ void UCrankItIntroFlowSubsystem::OnDescendTimerFired()
 		return;
 	}
 
-	ATunnel* Tunnel = Cast<ATunnel>(UGameplayStatics::GetActorOfClass(World, ATunnel::StaticClass()));
+	UCrankItActorRegistry* Registry = World->GetSubsystem<UCrankItActorRegistry>();
+	// 经 ActorRegistry 取 ATunnel，停止下降后再播 Intro 过场
+	ATunnel* Tunnel = Registry ? Registry->GetTunnel() : nullptr;
 	if (!Tunnel)
 	{
 		return;
@@ -282,7 +285,7 @@ void UCrankItIntroFlowSubsystem::PlaySequence(FName SequenceTag, bool bLoop)
 	}
 }
 
-// 设置电脑屏幕首段故障提示文案
+// 设置电脑屏幕首段故障提示文案（经 ActorRegistry 取 AComputerScreenActor）
 void UCrankItIntroFlowSubsystem::SetFirstComputerScreenText()
 {
 	UWorld* World = GetWorld();
@@ -291,8 +294,10 @@ void UCrankItIntroFlowSubsystem::SetFirstComputerScreenText()
 		return;
 	}
 
-	ComputerScreen = Cast<AComputerScreenActor>(
-		UGameplayStatics::GetActorOfClass(World, AComputerScreenActor::StaticClass()));
+	if (UCrankItActorRegistry* Reg = World->GetSubsystem<UCrankItActorRegistry>())
+	{
+		ComputerScreen = Reg->GetComputerScreen();
+	}
 	if (ComputerScreen)
 	{
 		ComputerScreen->SetFirstPromptText();
@@ -365,7 +370,7 @@ void UCrankItIntroFlowSubsystem::ShowTutorial()
 	PC->bShowMouseCursor = true;
 }
 
-// EMP 教程结束后调用：电脑屏幕可点击、怪物可生成（通常由 MineConsole 经 GameMode 转发）
+// EMP 教程结束后：经 ActorRegistry 解锁电脑屏幕与怪物
 void UCrankItIntroFlowSubsystem::PrepareLevel()
 {
 	UWorld* World = GetWorld();
@@ -374,14 +379,15 @@ void UCrankItIntroFlowSubsystem::PrepareLevel()
 		return;
 	}
 
-	ComputerScreen = Cast<AComputerScreenActor>(
-		UGameplayStatics::GetActorOfClass(World, AComputerScreenActor::StaticClass()));
+	if (UCrankItActorRegistry* Reg = World->GetSubsystem<UCrankItActorRegistry>())
+	{
+		ComputerScreen = Reg->GetComputerScreen();
+		Monster = Reg->GetMonster();
+	}
 	if (ComputerScreen)
 	{
 		ComputerScreen->bIsClickable = true;
 	}
-
-	Monster = Cast<AMonster>(UGameplayStatics::GetActorOfClass(World, AMonster::StaticClass()));
 	if (Monster)
 	{
 		Monster->bSpawnable = true;
