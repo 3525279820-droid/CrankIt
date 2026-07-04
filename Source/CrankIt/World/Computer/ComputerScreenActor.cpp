@@ -91,13 +91,14 @@ void AComputerScreenActor::SetBeginText()
 
 
 
+// 点击屏幕：可交互且非过场时切到 FixedCamera，并记录 OriginalViewTarget
 void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)
 {
 	Super::NotifyActorOnClicked(ButtonPressed);
 
 	APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn());
 
-	if (Cam && bIsClickable)
+	if (Cam && IsInteractable())
 	{
 		if (PC && FixedCamera && !Cam->bIsInCinematic)
 		{
@@ -114,7 +115,7 @@ void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)
 	}
 }
 
-// Called every frame
+// 检测电脑视角切换，更新 TerminalWidget 键盘焦点与输入模式
 void AComputerScreenActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);

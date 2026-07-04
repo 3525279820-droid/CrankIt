@@ -15,10 +15,8 @@ class CRANKIT_API AMineConsole : public AActor
 {
 	GENERATED_BODY()
 	
-public:	
-	// Sets default values for this actor's properties
+public:
 	AMineConsole();
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	void SetShouldRotate(bool CanRotate);
@@ -35,15 +33,15 @@ public:
 
 	void CheckNeedCharge();
 
-	/** 玩家在 SkipTutorial 中点击 Yes 后为 true，不再显示教程字幕。 */
+	// 玩家在 SkipTutorial 中选 Yes 后为 true，不再显示教程字幕
 	UPROPERTY(BlueprintReadWrite, Category = "Tutorial")
 	bool bSkipedTutorial = false;
 
-	/** 充电教程字幕已全部展示过（充满 3 格后），不再重复播放。 */
+	// 充电教程字幕已全部展示过（充满 3 格后），不再重复播放
 	UPROPERTY(BlueprintReadWrite, Category = "Tutorial")
 	bool bBatteryFirstCharged = false;
 
-	/** 方向 3 下已首次触发 LightTrigger 并播放过 EMP 教程字幕。 */
+	// 方向 3 下已首次触发 LightTrigger 并播放过 EMP 教程字幕
 	UPROPERTY(BlueprintReadWrite, Category = "Tutorial")
 	bool bEMPFirstTriggered = false;
 
@@ -83,23 +81,22 @@ public:
 
 	void TryShowChargeTutorialSubtitle(int32 NewChargeLevel);
 
-	/** 玩家在 SkipTutorial 中选 Yes 时调用；C++ 外部请优先走 UCrankItGameplaySubsystem::SetTutorialSkipped。 */
+	// 标记 Skip 教程已选 Yes；外部请优先走 UCrankItGameplaySubsystem::SetTutorialSkipped
 	void SetTutorialSkipped(bool bSkipped);
 
-	/** 是否应在当前朝向下播放 EMP 教程（West = 3，与 IntroFlow::SkipTutorialDirectionIndex 一致）。 */
+	// 是否应在当前朝向下播放 EMP 教程（West=3，与 IntroFlow::SkipTutorialDirectionIndex 一致）
 	bool ShouldShowEMPTutorial(int32 PlayerDirectionIndex) const;
 
-	/** 方向 3 下首次触发 LightTrigger 时播放 EMP 教程字幕轨。 */
+	// 方向 3 下首次触发 LightTrigger 时播放 EMP 教程字幕轨
 	void TryShowLightTutorialSubtitle();
 
-	/** 触发 EMP 教程所需的玩家朝向索引（Directions 中 West）。 */
+	// 触发 EMP 教程所需的玩家朝向索引（Directions 中 West）
 	static constexpr int32 EMPTutorialDirectionIndex = 3;
 
-	/** 已展示过的最高充电教程行（1~3），避免多块电池重复播同一句。 */
+	// 已展示过的最高充电教程行（1~3），避免多块电池重复播同一句
 	int32 ChargeTutorialLineShownUpTo = 0;
 
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 

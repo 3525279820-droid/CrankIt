@@ -64,7 +64,11 @@ protected:
 	bool bIsSpawned = false;
 
 public:
+	UPROPERTY(BlueprintReadOnly, Category = "Monster")
 	bool bSpawnable = false;
+
+	// C++ 外部启用怪物生成请调用此方法，勿直接写 bSpawnable
+	void EnableSpawning() { bSpawnable = true; }
 
 	// 怪物当前方向（东、西、北）
 	UPROPERTY(VisibleAnywhere, Category="Monster")

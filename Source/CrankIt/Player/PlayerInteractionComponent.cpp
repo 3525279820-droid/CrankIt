@@ -1,7 +1,7 @@
 #include "Player/PlayerInteractionComponent.h"
 
 #include "Battery.h"
-#include "Kismet/GameplayStatics.h"
+#include "CrankItActorRegistry.h"
 #include "MineConsole.h"
 #include "Player/BatteryHoldComponent.h"
 #include "PlayerCamera.h"
@@ -19,7 +19,7 @@ UPlayerInteractionComponent::UPlayerInteractionComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
-// 缓存 MineConsole、PlayerController 与同 Pawn 上的 BatteryHoldComponent
+// 经 ActorRegistry 缓存 MineConsole，并查找同 Pawn 上的 BatteryHoldComponent
 void UPlayerInteractionComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -27,8 +27,10 @@ void UPlayerInteractionComponent::BeginPlay()
 	UWorld* World = GetWorld();
 	if (World)
 	{
-		MineConsole = Cast<AMineConsole>(
-			UGameplayStatics::GetActorOfClass(World, AMineConsole::StaticClass()));
+		if (UCrankItActorRegistry* Registry = World->GetSubsystem<UCrankItActorRegistry>())
+		{
+			MineConsole = Registry->GetMineConsole();
+		}
 	}
 
 	if (AActor* Owner = GetOwner())

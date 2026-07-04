@@ -60,6 +60,13 @@ public:
 	// 记录上一帧是否处于电脑屏幕视角，用于检测状态切换
 	bool bWasInComputerView = false;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Interaction")
 	bool bIsClickable = true;
+
+	// C++ 外部解锁/锁定屏幕点击请调用此方法，勿直接写 bIsClickable
+	void SetInteractable(bool bInClickable) { bIsClickable = bInClickable; }
+
+	UFUNCTION(BlueprintPure, Category = "Interaction")
+	bool IsInteractable() const { return bIsClickable; }
 
 };

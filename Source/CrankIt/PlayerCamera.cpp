@@ -1,11 +1,12 @@
 #include "PlayerCamera.h"
 
 #include "Input/CrankItInputModeService.h"
+#include "UI/CrankItUIService.h"
 #include "Player/PlayerInteractionComponent.h"
 #include "Player/BatteryHoldComponent.h"
-#include "Blueprint/UserWidget.h"
 #include "GameFramework/PlayerController.h"
 
+// 挂载 SpringArm、交互/电池 Component
 APlayerCamera::APlayerCamera()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -61,6 +62,7 @@ void APlayerCamera::SetExplorationMappingContextEnabled(APlayerController* PC, b
 	}
 }
 
+// 初始化挂点、输入映射、经 UIService 创建字幕 HUD
 void APlayerCamera::BeginPlay()
 {
 	Super::BeginPlay();
@@ -74,11 +76,6 @@ void APlayerCamera::BeginPlay()
 	if (BatteryHoldComponent && BatteryHoldPoint)
 	{
 		BatteryHoldComponent->Initialize(BatteryHoldPoint);
-	}
-
-	if (InteractionComponent)
-	{
-		MineConsole = InteractionComponent->GetMineConsole();
 	}
 
 	if (APlayerController* PC = Cast<APlayerController>(Controller))
@@ -97,21 +94,15 @@ void APlayerCamera::BeginPlay()
 			}
 		}
 
-		if (SubtitleWidgetClass)
+		// 字幕显示仍订阅 USubtitleSubsystem；Widget 生命周期由 UIService 统一管理
+		if (UCrankItUIService* UIService = GetWorld()->GetSubsystem<UCrankItUIService>())
 		{
-			SubtitlesWidget = CreateWidget<USubtitleWidget>(PC, SubtitleWidgetClass);
-		}
-		else
-		{
-			SubtitlesWidget = CreateWidget<USubtitleWidget>(PC);
-		}
-		if (SubtitlesWidget)
-		{
-			SubtitlesWidget->AddToPlayerScreen(200);
+			UIService->EnsureSubtitleWidget(PC, SubtitleWidgetClass, 200);
 		}
 	}
 }
 
+// 仅处理 SoundDetectorHoldPoint 抬升（悬停/电池逻辑在 InteractionComponent）
 void APlayerCamera::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -121,6 +112,7 @@ void APlayerCamera::Tick(float DeltaTime)
 	}
 }
 
+// 绑定 Enhanced Input：转向、交互拾取、退出电脑视角
 void APlayerCamera::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -141,6 +133,7 @@ void APlayerCamera::InteractInput(const FInputActionValue& InputActionValue)
 	}
 }
 
+// A/D 转向并更新 CurrentDirectionIndex，广播 OnDirectionChanged
 void APlayerCamera::TurnInput(const FInputActionValue& value)
 {
 	if (bIsInCinematic)
@@ -163,6 +156,7 @@ void APlayerCamera::TurnInput(const FInputActionValue& value)
 	SpringArmComp->SetWorldRotation(TargetRotation);
 }
 
+// 从电脑固定相机切回 OriginalViewTarget（由 ComputerScreenActor 写入）
 void APlayerCamera::ExitScreenInput(const FInputActionValue& value)
 {
 	if (!OriginalViewTarget)
@@ -176,6 +170,7 @@ void APlayerCamera::ExitScreenInput(const FInputActionValue& value)
 	OriginalViewTarget = nullptr;
 }
 
+// 更新 Directions 环形索引并广播（IntroFlow 订阅 West=3 触发 Skip 教程）
 void APlayerCamera::UpdateCurrentDirection(bool bIsLeft)
 {
 	if (bIsLeft)
@@ -204,6 +199,7 @@ void APlayerCamera::UpdateCurrentDirection(bool bIsLeft)
 	OnDirectionChanged.Broadcast(CurrentDirectionIndex);
 }
 
+// EMP 教程字幕结束后调用，Tick 中平滑抬升 SoundDetectorHoldPoint
 void APlayerCamera::StartSoundDetectorHoldLift()
 {
 	if (SoundDetectorHoldCurrentLift >= SoundDetectorHoldLiftDistance - KINDA_SMALL_NUMBER)
@@ -213,6 +209,7 @@ void APlayerCamera::StartSoundDetectorHoldLift()
 	bLiftSoundDetectorHoldPoint = true;
 }
 
+// 按 SoundDetectorHoldLiftSpeed 插值抬升挂点相对 Z
 void APlayerCamera::UpdateSoundDetectorHoldLift(float DeltaTime)
 {
 	if (!SoundDetectorHoldPoint || DeltaTime <= 0.f)

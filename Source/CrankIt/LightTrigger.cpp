@@ -69,6 +69,7 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 
 			if (Battery->ChargeProgress == 3)
 			{
+				// 满电放电前：West 朝向且满足教程条件时播放 EMP 字幕轨（经 Registry + ShouldShowEMPTutorial）
 				if (UWorld* World = GetWorld())
 				{
 					AMineConsole* Console = nullptr;
@@ -83,7 +84,7 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 					{
 						if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
 						{
-							PlayerDirectionIndex = Cam->CurrentDirectionIndex;
+							PlayerDirectionIndex = Cam->GetCurrentDirectionIndex();
 						}
 					}
 

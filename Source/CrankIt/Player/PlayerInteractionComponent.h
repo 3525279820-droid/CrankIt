@@ -1,7 +1,7 @@
 #pragma once
 
 // 鼠标悬停检测：ChargeHandle 驱动 MineConsole 旋转，Battery 标签更新拾取目标。
-// 由 APlayerCamera 挂载；InteractInput 读取 GetTargetBattery 后交给 UBatteryHoldComponent。
+// 由 APlayerCamera 挂载；MineConsole 经 ActorRegistry 缓存。
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"

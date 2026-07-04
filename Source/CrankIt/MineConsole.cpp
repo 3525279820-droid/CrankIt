@@ -48,7 +48,7 @@ AMineConsole::AMineConsole()
 	}
 }
 
-// BeginPlay：启动充电灯序列，经 ActorRegistry 取电池并对齐到槽位
+// BeginPlay：启动充电灯序列，向 ActorRegistry 注册自身并取电池对齐槽位
 void AMineConsole::BeginPlay()
 {
 	Super::BeginPlay();
@@ -185,11 +185,13 @@ void AMineConsole::TryShowChargeTutorialSubtitle(int32 NewChargeLevel)
 	}
 }
 
+// 写入 bSkipedTutorial，供充电/EMP 教程字幕 gate 读取
 void AMineConsole::SetTutorialSkipped(bool bSkipped)
 {
 	bSkipedTutorial = bSkipped;
 }
 
+// 满电 EMP 触发前的前置条件：West 朝向且教程未跳过、EMP 轨未播过
 bool AMineConsole::ShouldShowEMPTutorial(int32 PlayerDirectionIndex) const
 {
 	return PlayerDirectionIndex == EMPTutorialDirectionIndex
@@ -219,7 +221,7 @@ void AMineConsole::TryShowLightTutorialSubtitle()
 
 	if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
 	{
-		// 字幕播完后恢复输入并准备关卡（怪物、电脑屏幕等）
+		// 字幕播完后恢复输入、抬升探测器挂点，并经 GameplaySubsystem 通知 IntroFlow 解锁关卡
 		Narrative->PlaySubtitleTrack(CrankItNarrative::Subtitle::EMP_Tutorial, [World]()
 		{
 			if (APlayerController* CallbackPC = World->GetFirstPlayerController())

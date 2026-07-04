@@ -41,7 +41,7 @@ void AInitLevel::BeginPlay()
 	}
 }
 
-// 以下公开 API 转发至 UCrankItIntroFlowSubsystem，Blueprint 与 MineConsole 等调用路径不变
+// 以下公开 API 转发至 UCrankItIntroFlowSubsystem，保留 Blueprint 调用路径
 
 void AInitLevel::OnTutorialClosed()
 {
@@ -91,6 +91,7 @@ void AInitLevel::ShowTutorial()
 	}
 }
 
+// 转发 IntroFlow::PrepareLevel（EMP 教程结束经 GameplaySubsystem 事件触发）
 void AInitLevel::PrepareLevel()
 {
 	if (UCrankItIntroFlowSubsystem* IntroFlow = GetIntroFlow())

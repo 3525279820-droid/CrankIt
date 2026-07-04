@@ -53,12 +53,12 @@ void UTerminalActionDispatcher::RegisterActions()
 
 		Display->StartDisplayingLinesProcedure(3.f, [this]()
 		{
-			// REBOOT 动画结束后经 ActorRegistry 启用怪物生成与顶灯闪烁
+			// REBOOT 动画结束后经 ActorRegistry 调用 EnableSpawning 与顶灯闪烁
 			if (UCrankItActorRegistry* Reg = GetWorld()->GetSubsystem<UCrankItActorRegistry>())
 			{
 				if (AMonster* Monster = Reg->GetMonster())
 				{
-					Monster->bSpawnable = true;
+					Monster->EnableSpawning();
 				}
 				if (AFlashTopLight* FlashLight = Reg->GetFlashTopLight())
 				{

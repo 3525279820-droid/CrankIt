@@ -24,10 +24,10 @@ class CRANKIT_API UCrankItIntroFlowSubsystem : public UWorldSubsystem
 public:
 	virtual void Deinitialize() override;
 
-	/** BeginPlay 时由 AInitLevel 调用：缓存 GameMode 配置、订阅方向变化并启动开场定时器。 */
+	// BeginPlay 时由 AInitLevel 调用：缓存 GameMode 配置、订阅方向变化并启动开场定时器
 	void StartIntroFlow(AInitLevel* OwnerGameMode);
 
-	/** EMP 教程结束后解锁关卡（怪物可生成、电脑屏幕可点击）。 */
+	// 解锁怪物生成与电脑屏幕点击（通常由 HandlePostEMPTutorialFinished 调用）
 	void PrepareLevel();
 
 	void ShowKeyPrompt();
@@ -57,8 +57,11 @@ private:
 	void StartSkipTutorialFlow();
 	void OnDescendTimerFired();
 	void UnbindPlayerDirectionChanged();
+	// 订阅 UCrankItGameplaySubsystem::OnPostEMPTutorialFinished
 	void BindGameplayEvents();
+	// Deinitialize 时解除 GameplaySubsystem 订阅
 	void UnbindGameplayEvents();
+	// OnPostEMPTutorialFinished 回调，转发 PrepareLevel
 	void HandlePostEMPTutorialFinished();
 	void CachePlayerReferences();
 

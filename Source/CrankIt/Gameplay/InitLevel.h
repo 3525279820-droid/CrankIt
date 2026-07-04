@@ -45,7 +45,7 @@ public:
 	void ShowTutorial();
 	void ShowSkipTutorial();
 
-	/** 解锁怪物与电脑屏幕（转发至 IntroFlowSubsystem；EMP 教程结束经 GameplaySubsystem 事件触发）。 */
+	// 解锁怪物与电脑屏幕（转发 IntroFlow；EMP 教程结束经 GameplaySubsystem 事件触发）
 	void PrepareLevel();
 
 	void StopIntroCutsceneAndReturnToGame();

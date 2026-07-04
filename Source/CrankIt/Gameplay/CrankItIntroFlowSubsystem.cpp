@@ -5,6 +5,9 @@
 #include "PlayerCamera.h"
 #include "ComputerScreenActor.h"
 #include "KeyPromptWidgetBase.h"
+#include "SkipTutorialWidget.h"
+#include "SDTutorialWidget.h"
+#include "Blueprint/UserWidget.h"
 #include "Tunnel.h"
 #include "LevelSequencePlayer.h"
 #include "MovieSceneSequencePlaybackSettings.h"
@@ -121,6 +124,7 @@ void UCrankItIntroFlowSubsystem::UnbindPlayerDirectionChanged()
 	}
 }
 
+// 订阅 GameplaySubsystem::OnPostEMPTutorialFinished（StartIntroFlow 时调用）
 void UCrankItIntroFlowSubsystem::BindGameplayEvents()
 {
 	if (UWorld* World = GetWorld())
@@ -133,6 +137,7 @@ void UCrankItIntroFlowSubsystem::BindGameplayEvents()
 	}
 }
 
+// 子系统销毁时解除 GameplaySubsystem 订阅
 void UCrankItIntroFlowSubsystem::UnbindGameplayEvents()
 {
 	if (UWorld* World = GetWorld())
@@ -144,6 +149,7 @@ void UCrankItIntroFlowSubsystem::UnbindGameplayEvents()
 	}
 }
 
+// EMP 教程字幕结束事件：解锁电脑屏幕点击与怪物生成
 void UCrankItIntroFlowSubsystem::HandlePostEMPTutorialFinished()
 {
 	PrepareLevel();
@@ -400,7 +406,7 @@ void UCrankItIntroFlowSubsystem::ShowTutorial()
 	PC->bShowMouseCursor = true;
 }
 
-// EMP 教程结束后：经 ActorRegistry 解锁电脑屏幕与怪物
+// 由 GameplaySubsystem 事件或 GameMode::PrepareLevel 转发触发；经 ActorRegistry 解锁关卡元素
 void UCrankItIntroFlowSubsystem::PrepareLevel()
 {
 	UWorld* World = GetWorld();
@@ -416,11 +422,11 @@ void UCrankItIntroFlowSubsystem::PrepareLevel()
 	}
 	if (ComputerScreen)
 	{
-		ComputerScreen->bIsClickable = true;
+		ComputerScreen->SetInteractable(true);
 	}
 	if (Monster)
 	{
-		Monster->bSpawnable = true;
+		Monster->EnableSpawning();
 	}
 }
 
@@ -502,7 +508,7 @@ void UCrankItIntroFlowSubsystem::CleanupIntroUIAndRestoreGameplay()
 	}
 }
 
-// Skip 教程选 Yes：经 GameplaySubsystem 标记跳过并播放 TutorialSkipped 字幕轨
+// Skip 教程选 Yes：经 GameplaySubsystem 写 MineConsole，再播放 TutorialSkipped 字幕轨
 void UCrankItIntroFlowSubsystem::TutorialSkipped()
 {
 	if (UWorld* World = GetWorld())
