@@ -11,7 +11,7 @@ public class CrankIt : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", 
 			"EnhancedInput", "UMG", "AudioMixer", "LevelSequence", "MovieScene" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "AssetRegistry" }); // ClassificationImageLibrary 扫描 Content 纹理
 
 		// 模块根 + 已重构子目录：本模块 .cpp 编译时的 #include 搜索路径
 		PrivateIncludePaths.Add(ModuleDirectory);

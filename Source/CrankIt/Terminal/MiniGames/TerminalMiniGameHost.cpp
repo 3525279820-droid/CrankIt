@@ -7,6 +7,7 @@
 #include "Components/CanvasPanelSlot.h"
 #include "CrankItNarrativeIds.h"
 
+// 绑定 Host / Display 与子 Widget 引用
 void UTerminalMiniGameHost::Initialize(
 	UTerminalWidget* InHost,
 	UTerminalDisplayController* InDisplay,
@@ -20,6 +21,7 @@ void UTerminalMiniGameHost::Initialize(
 	CurrentInputMode = ETerminalInputMode::Terminal;
 }
 
+// 分类 / 校准模式下消费按键；Tab 退出当前小游戏
 bool UTerminalMiniGameHost::RouteKey(const FKey& Key)
 {
 	if (CurrentInputMode == ETerminalInputMode::ClassificationGame)
@@ -60,6 +62,7 @@ bool UTerminalMiniGameHost::RouteKey(const FKey& Key)
 	return false;
 }
 
+// 显示分类 Widget 并从 Content 目录随机抽图开局（见 ClassificationGameWidget::ImageContentPath）
 void UTerminalMiniGameHost::EnterClassificationGame()
 {
 	if (!Host || !Display)
@@ -80,33 +83,13 @@ void UTerminalMiniGameHost::EnterClassificationGame()
 	Display->UpdateDisplay();
 
 	ClassificationGameWidget->SetVisibility(ESlateVisibility::Visible);
-
-	TArray<FClassificationItem> DefaultItems;
-	DefaultItems.Reserve(24);
-	for (int32 i = 0; i < 24; ++i)
-	{
-		FClassificationItem Item;
-		Item.Id = FName(*FString::Printf(TEXT("Item_%02d"), i + 1));
-		if (i < 8)
-		{
-			Item.CorrectCategory = EClassificationCategory::Animal;
-		}
-		else if (i < 16)
-		{
-			Item.CorrectCategory = EClassificationCategory::Fruit;
-		}
-		else
-		{
-			Item.CorrectCategory = EClassificationCategory::Sport;
-		}
-		DefaultItems.Add(Item);
-	}
-	ClassificationGameWidget->StartGame(DefaultItems);
+	ClassificationGameWidget->StartGame();
 
 	ClassificationGameWidget->OnGameFinished.RemoveAll(this);
 	ClassificationGameWidget->OnGameFinished.AddDynamic(this, &UTerminalMiniGameHost::HandleClassificationGameFinished);
 }
 
+// 分类结束：写入 Narrative 输出块并退回终端模式
 void UTerminalMiniGameHost::HandleClassificationGameFinished(bool bAllCorrect)
 {
 	if (!Host)
@@ -125,6 +108,7 @@ void UTerminalMiniGameHost::HandleClassificationGameFinished(bool bAllCorrect)
 	ExitClassificationGame();
 }
 
+// 隐藏分类 Widget，恢复终端输入模式
 void UTerminalMiniGameHost::ExitClassificationGame()
 {
 	if (!Host || !Display)
@@ -145,6 +129,7 @@ void UTerminalMiniGameHost::ExitClassificationGame()
 	}
 }
 
+// 显示校准 Widget 并 StartGame；抬高 ZOrder 以免被终端背景挡住
 void UTerminalMiniGameHost::EnterCalibrationGame()
 {
 	if (!Host || !Display)
@@ -166,6 +151,7 @@ void UTerminalMiniGameHost::EnterCalibrationGame()
 
 	CalibrationWidget->SetVisibility(ESlateVisibility::Visible);
 
+	// 避免终端 TextBlock 铺满 Canvas 时盖住校准子 Widget
 	if (UPanelSlot* PanelSlot = CalibrationWidget->Slot)
 	{
 		if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(PanelSlot))
@@ -180,6 +166,7 @@ void UTerminalMiniGameHost::EnterCalibrationGame()
 	CalibrationWidget->StartGame();
 }
 
+// 校准结束：写入 Narrative 输出块并退回终端模式
 void UTerminalMiniGameHost::HandleCalibrationGameFinished(bool bWon)
 {
 	if (!Host)
@@ -198,6 +185,7 @@ void UTerminalMiniGameHost::HandleCalibrationGameFinished(bool bWon)
 	ExitCalibrationGame();
 }
 
+// 隐藏校准 Widget，恢复终端输入模式
 void UTerminalMiniGameHost::ExitCalibrationGame()
 {
 	if (!Host || !Display)

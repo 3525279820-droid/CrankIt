@@ -1,61 +1,68 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "ClassificationGameWidget.h"
+
+#include "ClassificationImageLibrary.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/GridPanel.h"
 #include "Components/GridSlot.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
+#include "Components/Image.h"
 #include "Components/PanelWidget.h"
+#include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "Engine/Texture2D.h"
 
 void UClassificationGameWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-	BuildRuntimeTextUI();
-	RefreshRuntimeTextUI();
+	BuildRuntimeImageUI();
+	RefreshRuntimeImageUI();
 }
 
-void UClassificationGameWidget::StartGame(const TArray<FClassificationItem>& InItems)
+// 经 FClassificationImageLibrary 扫描 ImageContentPath 并随机填充 Items
+bool UClassificationGameWidget::LoadRandomItemsFromContentFolder()
 {
-	Items = InItems;
+	TArray<FClassificationImageLibrary::FSourceImage> Pool;
+	if (!FClassificationImageLibrary::LoadImagesFromContentPath(ImageContentPath, Pool))
+	{
+		return false;
+	}
 
 	const int32 Total = FMath::Max(0, GridRows * GridCols);
-	if (Items.Num() < Total)
+	return FClassificationImageLibrary::BuildRandomRound(Pool, Total, Items);
+}
+
+// 加载随机图片并重置光标；失败时广播 OnGameFinished(false)
+void UClassificationGameWidget::StartGame()
+{
+	if (!LoadRandomItemsFromContentFolder())
 	{
-		// 不足时补齐（用重复项占位，方便先把流程跑通）
-		const int32 Missing = Total - Items.Num();
-		for (int32 i = 0; i < Missing; ++i)
-		{
-			FClassificationItem Dummy;
-			Dummy.Id = FName(*FString::Printf(TEXT("Dummy_%d"), i));
-			Dummy.CorrectCategory = EClassificationCategory::Animal;
-			Items.Add(Dummy);
-		}
-	}
-	else if (Items.Num() > Total)
-	{
-		Items.SetNum(Total);
+		UE_LOG(LogTemp, Warning,
+			TEXT("ClassificationGameWidget: Failed to load images from '%s'."),
+			*ImageContentPath);
+		OnGameFinished.Broadcast(false);
+		return;
 	}
 
+	const int32 Total = Items.Num();
 	bClassifiedCorrectly.Init(false, Total);
 	ImageCursorIndex = 0;
 	OptionCursor = EClassificationCategory::Animal;
 
-	RefreshRuntimeTextUI();
+	RefreshRuntimeImageUI();
 	BP_OnStateChanged(ImageCursorIndex, OptionCursor);
 }
 
+// A/D 切换底部类别，Enter 确认当前格子的分类
 void UClassificationGameWidget::HandleKey(const FKey& Key)
 {
 	if (Key == EKeys::A || Key == EKeys::Left)
 	{
 		MoveOptionLeft();
-		RefreshRuntimeTextUI();
+		RefreshRuntimeImageUI();
 		BP_OnStateChanged(ImageCursorIndex, OptionCursor);
 		return;
 	}
@@ -63,7 +70,7 @@ void UClassificationGameWidget::HandleKey(const FKey& Key)
 	if (Key == EKeys::D || Key == EKeys::Right)
 	{
 		MoveOptionRight();
-		RefreshRuntimeTextUI();
+		RefreshRuntimeImageUI();
 		BP_OnStateChanged(ImageCursorIndex, OptionCursor);
 		return;
 	}
@@ -71,15 +78,13 @@ void UClassificationGameWidget::HandleKey(const FKey& Key)
 	if (Key == EKeys::Enter)
 	{
 		ConfirmChoice();
-		RefreshRuntimeTextUI();
+		RefreshRuntimeImageUI();
 		BP_OnStateChanged(ImageCursorIndex, OptionCursor);
-		return;
 	}
 }
 
 void UClassificationGameWidget::MoveOptionLeft()
 {
-	UE_LOG(LogTemp, Display, TEXT("left"))
 	switch (OptionCursor)
 	{
 	case EClassificationCategory::Animal:
@@ -96,7 +101,6 @@ void UClassificationGameWidget::MoveOptionLeft()
 
 void UClassificationGameWidget::MoveOptionRight()
 {
-	UE_LOG(LogTemp, Display, TEXT("right"))
 	switch (OptionCursor)
 	{
 	case EClassificationCategory::Animal:
@@ -111,10 +115,11 @@ void UClassificationGameWidget::MoveOptionRight()
 	}
 }
 
+// 答对则标记并跳到下一未完成格；全部完成则 OnGameFinished(true)
 void UClassificationGameWidget::ConfirmChoice()
 {
-	const int32 Total = GridRows * GridCols;
-	if (Total <= 0 || Items.Num() < Total || !bClassifiedCorrectly.IsValidIndex(ImageCursorIndex))
+	const int32 Total = Items.Num();
+	if (Total <= 0 || !bClassifiedCorrectly.IsValidIndex(ImageCursorIndex))
 	{
 		return;
 	}
@@ -127,7 +132,6 @@ void UClassificationGameWidget::ConfirmChoice()
 		bClassifiedCorrectly[ImageCursorIndex] = true;
 		BP_OnClassificationCorrect(ImageCursorIndex, Chosen);
 
-		// 找到下一个未完成的图片
 		int32 NextIndex = INDEX_NONE;
 		for (int32 i = 0; i < bClassifiedCorrectly.Num(); ++i)
 		{
@@ -140,7 +144,7 @@ void UClassificationGameWidget::ConfirmChoice()
 
 		if (NextIndex == INDEX_NONE)
 		{
-			RefreshRuntimeTextUI();
+			RefreshRuntimeImageUI();
 			OnGameFinished.Broadcast(true);
 			return;
 		}
@@ -150,7 +154,6 @@ void UClassificationGameWidget::ConfirmChoice()
 	}
 
 	BP_OnClassificationWrong(ImageCursorIndex, Chosen);
-	// 这里不推进图片光标，等待玩家重新选择
 }
 
 bool UClassificationGameWidget::IsAllCorrect() const
@@ -165,44 +168,78 @@ bool UClassificationGameWidget::IsAllCorrect() const
 	return true;
 }
 
-void UClassificationGameWidget::BuildRuntimeTextUI()
+// 将纹理设为等大 Brush（边长 CellImageSize）
+void UClassificationGameWidget::ApplyCellImageBrush(UImage* ImageWidget, UTexture2D* Texture) const
+{
+	if (!ImageWidget)
+	{
+		return;
+	}
+
+	FSlateBrush Brush;
+	if (Texture)
+	{
+		Brush.SetResourceObject(Texture);
+	}
+	Brush.ImageSize = FVector2D(CellImageSize, CellImageSize);
+	Brush.DrawAs = ESlateBrushDrawType::Image;
+	ImageWidget->SetBrush(Brush);
+}
+
+// 光标格黄色半透明底，已完成格绿色半透明底
+void UClassificationGameWidget::ApplyCellBorderState(UBorder* Border, bool bCursor, bool bDone) const
+{
+	if (!Border)
+	{
+		return;
+	}
+
+	FLinearColor Tint = FLinearColor(0.f, 0.f, 0.f, 0.f);
+	if (bDone)
+	{
+		Tint = FLinearColor(0.f, 0.45f, 0.f, 0.35f);
+	}
+	if (bCursor)
+	{
+		Tint = FLinearColor(1.f, 0.85f, 0.f, 0.55f);
+	}
+	Border->SetBrushColor(Tint);
+}
+
+// 纯 C++ 构建 GridPanel + 底部三档选项 TextBlock（蓝图无布局时也能跑通）
+void UClassificationGameWidget::BuildRuntimeImageUI()
 {
 	if (!WidgetTree)
 	{
 		return;
 	}
 
-	// 已构建过则不重复构建
-	if (CellTextBlocks.Num() > 0 && OptionTextBlocks.Num() > 0)
+	const int32 Total = FMath::Max(0, GridRows * GridCols);
+	if (CellImages.Num() > 0 && OptionTextBlocks.Num() > 0)
 	{
 		return;
 	}
 
-	const int32 Total = FMath::Max(0, GridRows * GridCols);
-	CellTextBlocks.Empty();
-	CellTextBlocks.SetNumZeroed(Total);
+	CellBorders.Empty();
+	CellBorders.SetNumZeroed(Total);
+	CellImages.Empty();
+	CellImages.SetNumZeroed(Total);
 	OptionTextBlocks.Empty();
 	OptionTextBlocks.SetNumZeroed(3);
 
 	UVerticalBox* RuntimeRoot = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("RuntimeRoot"));
 
-	// 如果蓝图已经有 RootWidget，则尝试把 RuntimeRoot 挂到现有 Root 下；
-	// 否则直接把 RuntimeRoot 设为根。
 	if (WidgetTree->RootWidget == nullptr)
 	{
 		WidgetTree->RootWidget = RuntimeRoot;
 	}
+	else if (UPanelWidget* ExistingRootPanel = Cast<UPanelWidget>(WidgetTree->RootWidget))
+	{
+		ExistingRootPanel->AddChild(RuntimeRoot);
+	}
 	else
 	{
-		if (UPanelWidget* ExistingRootPanel = Cast<UPanelWidget>(WidgetTree->RootWidget))
-		{
-			ExistingRootPanel->AddChild(RuntimeRoot);
-		}
-		else
-		{
-			// Root 不是 Panel，无法附加子控件，直接放弃
-			return;
-		}
+		return;
 	}
 
 	UGridPanel* Grid = WidgetTree->ConstructWidget<UGridPanel>(UGridPanel::StaticClass(), TEXT("CellGrid"));
@@ -216,20 +253,26 @@ void UClassificationGameWidget::BuildRuntimeTextUI()
 		for (int32 Col = 0; Col < GridCols; ++Col)
 		{
 			const int32 Index = Row * GridCols + Col;
-			UBorder* CellBorder = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass());
-			CellBorder->SetPadding(FMargin(6.f));
 
-			UTextBlock* CellText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass());
-			CellText->SetText(FText::FromString(TEXT("Item")));
-			CellText->SetColorAndOpacity(FLinearColor(1.f, 0.f, 0.f, 1.f));
-			CellBorder->SetContent(CellText);
+			UBorder* CellBorder = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass());
+			CellBorder->SetPadding(FMargin(2.f));
+
+			USizeBox* CellSize = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+			CellSize->SetWidthOverride(CellImageSize);
+			CellSize->SetHeightOverride(CellImageSize);
+
+			UImage* CellImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass());
+			ApplyCellImageBrush(CellImage, nullptr);
+			CellSize->AddChild(CellImage);
+			CellBorder->SetContent(CellSize);
 
 			if (UGridSlot* CellSlot = Grid->AddChildToGrid(CellBorder, Row, Col))
 			{
 				CellSlot->SetPadding(FMargin(2.f));
 			}
 
-			CellTextBlocks[Index] = CellText;
+			CellBorders[Index] = CellBorder;
+			CellImages[Index] = CellImage;
 		}
 	}
 
@@ -252,29 +295,23 @@ void UClassificationGameWidget::BuildRuntimeTextUI()
 	}
 }
 
-void UClassificationGameWidget::RefreshRuntimeTextUI()
+// 刷新网格纹理与边框高亮、底部选项选中态
+void UClassificationGameWidget::RefreshRuntimeImageUI()
 {
-	for (int32 i = 0; i < CellTextBlocks.Num(); ++i)
+	for (int32 i = 0; i < CellImages.Num(); ++i)
 	{
-		if (!CellTextBlocks[i])
+		UTexture2D* Texture = Items.IsValidIndex(i) ? Items[i].Image : nullptr;
+		if (CellImages[i])
 		{
-			continue;
+			ApplyCellImageBrush(CellImages[i], Texture);
 		}
 
-		const FString ItemName = Items.IsValidIndex(i) ? Items[i].Id.ToString() : FString::Printf(TEXT("Item_%02d"), i + 1);
 		const bool bCursor = (i == ImageCursorIndex);
 		const bool bDone = bClassifiedCorrectly.IsValidIndex(i) ? bClassifiedCorrectly[i] : false;
-
-		FString Prefix = TEXT("[ ] ");
-		if (bDone)
+		if (CellBorders.IsValidIndex(i))
 		{
-			Prefix = TEXT("[OK] ");
+			ApplyCellBorderState(CellBorders[i], bCursor, bDone);
 		}
-		if (bCursor)
-		{
-			Prefix = TEXT("[>] ");
-		}
-		CellTextBlocks[i]->SetText(FText::FromString(Prefix + ItemName));
 	}
 
 	const EClassificationCategory OptionList[3] = {
@@ -308,4 +345,3 @@ FString UClassificationGameWidget::CategoryToString(EClassificationCategory Cate
 		return TEXT("unknown");
 	}
 }
-

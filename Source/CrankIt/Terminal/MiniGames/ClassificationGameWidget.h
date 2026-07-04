@@ -1,11 +1,14 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
+
+// Terminal/MiniGames — 3×8 分类小游戏：从 Content 目录随机抽图，网格用 UImage 等大显示
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "ClassificationGameWidget.generated.h"
 
+class UBorder;
+class UImage;
+class UTexture2D;
 class UTextBlock;
 
 UENUM(BlueprintType)
@@ -21,19 +24,15 @@ struct FClassificationItem
 {
 	GENERATED_BODY()
 
-	// 你后续可以替换为 Texture/Material/SoftObjectPath 等
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Classification")
-	FName Id = NAME_None;
+	UPROPERTY(BlueprintReadOnly, Category = "Classification")
+	TObjectPtr<UTexture2D> Image = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Classification")
+	UPROPERTY(BlueprintReadOnly, Category = "Classification")
 	EClassificationCategory CorrectCategory = EClassificationCategory::Animal;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnClassificationGameFinished, bool, bAllCorrect);
 
-/**
- * 3x8 分类小游戏 Widget（最小可用逻辑版本）
- */
 UCLASS()
 class CRANKIT_API UClassificationGameWidget : public UUserWidget
 {
@@ -42,45 +41,49 @@ class CRANKIT_API UClassificationGameWidget : public UUserWidget
 public:
 	virtual void NativeConstruct() override;
 
-	// 由外部（TerminalWidget）转发按键调用
-	UFUNCTION(BlueprintCallable, Category="Classification|Input")
+	// 由 TerminalMiniGameHost 转发 A / D / Enter
+	UFUNCTION(BlueprintCallable, Category = "Classification|Input")
 	void HandleKey(const FKey& Key);
 
-	// 初始化/重开一局（Items 不够 24 个时会尽量填充）
-	UFUNCTION(BlueprintCallable, Category="Classification")
-	void StartGame(const TArray<FClassificationItem>& InItems);
+	// 扫描 ImageContentPath 并随机开局（GridRows × GridCols 张）
+	UFUNCTION(BlueprintCallable, Category = "Classification")
+	void StartGame();
 
-	// 让蓝图实现具体的 UI 刷新（图片光标/选项光标/错误提示等）
-	UFUNCTION(BlueprintImplementableEvent, Category="Classification|UI")
+	UFUNCTION(BlueprintImplementableEvent, Category = "Classification|UI")
 	void BP_OnStateChanged(int32 InImageCursorIndex, EClassificationCategory InOptionCursor);
 
-	UFUNCTION(BlueprintImplementableEvent, Category="Classification|UI")
+	UFUNCTION(BlueprintImplementableEvent, Category = "Classification|UI")
 	void BP_OnClassificationWrong(int32 InImageCursorIndex, EClassificationCategory InChosen);
 
-	UFUNCTION(BlueprintImplementableEvent, Category="Classification|UI")
+	UFUNCTION(BlueprintImplementableEvent, Category = "Classification|UI")
 	void BP_OnClassificationCorrect(int32 InImageCursorIndex, EClassificationCategory InChosen);
 
-	// 小游戏结束事件（TerminalWidget 监听后调用 ExitClassificationGame）
-	UPROPERTY(BlueprintAssignable, Category="Classification")
+	UPROPERTY(BlueprintAssignable, Category = "Classification")
 	FOnClassificationGameFinished OnGameFinished;
 
-	// 运行时状态（方便蓝图显示）
-	UPROPERTY(BlueprintReadOnly, Category="Classification|State")
-	int32 ImageCursorIndex = 0; // 0..23，起始 0 表示 1行1列
+	UPROPERTY(BlueprintReadOnly, Category = "Classification|State")
+	int32 ImageCursorIndex = 0;
 
-	UPROPERTY(BlueprintReadOnly, Category="Classification|State")
+	UPROPERTY(BlueprintReadOnly, Category = "Classification|State")
 	EClassificationCategory OptionCursor = EClassificationCategory::Animal;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Classification|Config")
+	// Content 根路径，默认 /Game/Terminal/ClassificationGame；其下按 Animal / Fruit / Sport 分子目录
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Config")
+	FString ImageContentPath = TEXT("/Game/Terminal/ClassificationGame");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Config")
 	int32 GridRows = 3;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Classification|Config")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Config")
 	int32 GridCols = 8;
 
-	UPROPERTY(BlueprintReadOnly, Category="Classification|State")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Config", meta = (ClampMin = "16"))
+	float CellImageSize = 56.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Classification|State")
 	TArray<FClassificationItem> Items;
 
-	UPROPERTY(BlueprintReadOnly, Category="Classification|State")
+	UPROPERTY(BlueprintReadOnly, Category = "Classification|State")
 	TArray<bool> bClassifiedCorrectly;
 
 private:
@@ -88,12 +91,18 @@ private:
 	void MoveOptionRight();
 	void ConfirmChoice();
 	bool IsAllCorrect() const;
-	void BuildRuntimeTextUI();
-	void RefreshRuntimeTextUI();
+	bool LoadRandomItemsFromContentFolder();
+	void BuildRuntimeImageUI();
+	void RefreshRuntimeImageUI();
+	void ApplyCellImageBrush(UImage* ImageWidget, UTexture2D* Texture) const;
+	void ApplyCellBorderState(UBorder* Border, bool bCursor, bool bDone) const;
 	FString CategoryToString(EClassificationCategory Category) const;
 
 	UPROPERTY(Transient)
-	TArray<TObjectPtr<UTextBlock>> CellTextBlocks;
+	TArray<TObjectPtr<UBorder>> CellBorders;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UImage>> CellImages;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UTextBlock>> OptionTextBlocks;

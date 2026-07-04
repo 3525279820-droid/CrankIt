@@ -1,5 +1,7 @@
 #pragma once
 
+// Terminal/MiniGames — 分类 / 校准小游戏：模式切换、按键转发、结束回调
+
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "TerminalSharedTypes.h"
@@ -10,7 +12,6 @@ class UTerminalDisplayController;
 class UClassificationGameWidget;
 class UCalibrationWidget;
 
-/** Terminal/MiniGames — 分类 / 校准小游戏：模式切换、按键转发、结束回调 */
 UCLASS()
 class CRANKIT_API UTerminalMiniGameHost : public UObject
 {
@@ -25,7 +26,7 @@ public:
 
 	ETerminalInputMode GetInputMode() const { return CurrentInputMode; }
 
-	/** 分类 / 校准模式下转发按键；返回 true 表示已消费 */
+	// 分类 / 校准模式下转发按键；返回 true 表示已消费
 	bool RouteKey(const FKey& Key);
 
 	UFUNCTION(BlueprintCallable, Category = "Terminal|MiniGame")
