@@ -3,14 +3,12 @@
 
 #include "MineConsole.h"
 
-#include "InitLevel.h"
-#include "Kismet/GameplayStatics.h"
 #include "CrankItActorRegistry.h"
-#include "SubtitleSubsystem.h"
+#include "CrankItGameplaySubsystem.h"
+#include "CrankItNarrativeIds.h"
+#include "CrankItNarrativeSubsystem.h"
 #include "PlayerCamera.h"
 #include "GameFramework/PlayerController.h"
-#include "CrankItNarrativeSubsystem.h"
-#include "CrankItNarrativeIds.h"
 
 // Sets default values
 AMineConsole::AMineConsole()
@@ -57,9 +55,9 @@ void AMineConsole::BeginPlay()
 
 	StartLightingOffSequence();
 
-	// 经 ActorRegistry 取关卡内全部 ABattery
 	if (UCrankItActorRegistry* Reg = GetWorld()->GetSubsystem<UCrankItActorRegistry>())
 	{
+		Reg->RegisterMineConsole(this);
 		Reg->GetAllBatteries(Batteries);
 	}
 
@@ -187,7 +185,19 @@ void AMineConsole::TryShowChargeTutorialSubtitle(int32 NewChargeLevel)
 	}
 }
 
-// 首次触发 EMP 时播放 Gordon 教程字幕，结束后解锁关卡元素
+void AMineConsole::SetTutorialSkipped(bool bSkipped)
+{
+	bSkipedTutorial = bSkipped;
+}
+
+bool AMineConsole::ShouldShowEMPTutorial(int32 PlayerDirectionIndex) const
+{
+	return PlayerDirectionIndex == EMPTutorialDirectionIndex
+		&& !bSkipedTutorial
+		&& !bEMPFirstTriggered;
+}
+
+// 首次触发 EMP 时播放 Gordon 教程字幕，结束后经 GameplaySubsystem 通知 IntroFlow 解锁关卡
 void AMineConsole::TryShowLightTutorialSubtitle()
 {
 	if (bSkipedTutorial || bEMPFirstTriggered)
@@ -218,10 +228,10 @@ void AMineConsole::TryShowLightTutorialSubtitle()
 				if (APlayerCamera* Cam = Cast<APlayerCamera>(CallbackPC->GetPawn()))
 				{
 					Cam->StartSoundDetectorHoldLift();
-					if (AInitLevel* InitLevel = World->GetAuthGameMode<AInitLevel>())
-					{
-						InitLevel->PrepareLevel();
-					}
+				}
+				if (UCrankItGameplaySubsystem* Gameplay = World->GetSubsystem<UCrankItGameplaySubsystem>())
+				{
+					Gameplay->NotifyPostEMPTutorialFinished();
 				}
 			}
 		});

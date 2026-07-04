@@ -83,8 +83,17 @@ public:
 
 	void TryShowChargeTutorialSubtitle(int32 NewChargeLevel);
 
+	/** 玩家在 SkipTutorial 中选 Yes 时调用；C++ 外部请优先走 UCrankItGameplaySubsystem::SetTutorialSkipped。 */
+	void SetTutorialSkipped(bool bSkipped);
+
+	/** 是否应在当前朝向下播放 EMP 教程（West = 3，与 IntroFlow::SkipTutorialDirectionIndex 一致）。 */
+	bool ShouldShowEMPTutorial(int32 PlayerDirectionIndex) const;
+
 	/** 方向 3 下首次触发 LightTrigger 时播放 EMP 教程字幕轨。 */
 	void TryShowLightTutorialSubtitle();
+
+	/** 触发 EMP 教程所需的玩家朝向索引（Directions 中 West）。 */
+	static constexpr int32 EMPTutorialDirectionIndex = 3;
 
 	/** 已展示过的最高充电教程行（1~3），避免多块电池重复播同一句。 */
 	int32 ChargeTutorialLineShownUpTo = 0;

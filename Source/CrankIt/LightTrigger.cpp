@@ -5,8 +5,9 @@
 
 #include "EMPLight.h"
 #include "EngineUtils.h"
-#include "PlayerCamera.h"
+#include "CrankItActorRegistry.h"
 #include "MineConsole.h"
+#include "PlayerCamera.h"
 #include "GameFramework/PlayerController.h"
 
 void ULightTrigger::BeginPlay()
@@ -70,15 +71,25 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 			{
 				if (UWorld* World = GetWorld())
 				{
+					AMineConsole* Console = nullptr;
+					int32 PlayerDirectionIndex = INDEX_NONE;
+
+					if (UCrankItActorRegistry* Registry = World->GetSubsystem<UCrankItActorRegistry>())
+					{
+						Console = Registry->GetMineConsole();
+					}
+
 					if (APlayerController* PC = World->GetFirstPlayerController())
 					{
 						if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
 						{
-							if (Cam->CurrentDirectionIndex == 3 && Cam->MineConsole)
-							{
-								Cam->MineConsole->TryShowLightTutorialSubtitle();
-							}
+							PlayerDirectionIndex = Cam->CurrentDirectionIndex;
 						}
+					}
+
+					if (Console && Console->ShouldShowEMPTutorial(PlayerDirectionIndex))
+					{
+						Console->TryShowLightTutorialSubtitle();
 					}
 				}
 			

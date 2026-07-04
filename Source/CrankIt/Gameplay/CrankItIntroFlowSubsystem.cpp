@@ -1,7 +1,6 @@
 #include "CrankItIntroFlowSubsystem.h"
 
 #include "InitLevel.h"
-#include "MineConsole.h"
 #include "Monster.h"
 #include "PlayerCamera.h"
 #include "ComputerScreenActor.h"
@@ -14,6 +13,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "CrankItActorRegistry.h"
+#include "CrankItGameplaySubsystem.h"
 #include "CrankItNarrativeSubsystem.h"
 #include "CrankItNarrativeIds.h"
 
@@ -45,6 +45,7 @@ namespace
 void UCrankItIntroFlowSubsystem::Deinitialize()
 {
 	UnbindPlayerDirectionChanged();
+	UnbindGameplayEvents();
 
 	if (UWorld* World = GetWorld())
 	{
@@ -72,6 +73,7 @@ void UCrankItIntroFlowSubsystem::StartIntroFlow(AInitLevel* InOwnerGameMode)
 
 	CachePlayerReferences();
 	UnbindPlayerDirectionChanged();
+	BindGameplayEvents();
 
 	if (Cam)
 	{
@@ -117,6 +119,34 @@ void UCrankItIntroFlowSubsystem::UnbindPlayerDirectionChanged()
 	{
 		Cam->OnDirectionChanged.RemoveAll(this);
 	}
+}
+
+void UCrankItIntroFlowSubsystem::BindGameplayEvents()
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (UCrankItGameplaySubsystem* Gameplay = World->GetSubsystem<UCrankItGameplaySubsystem>())
+		{
+			Gameplay->OnPostEMPTutorialFinished.AddUObject(
+				this, &UCrankItIntroFlowSubsystem::HandlePostEMPTutorialFinished);
+		}
+	}
+}
+
+void UCrankItIntroFlowSubsystem::UnbindGameplayEvents()
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (UCrankItGameplaySubsystem* Gameplay = World->GetSubsystem<UCrankItGameplaySubsystem>())
+		{
+			Gameplay->OnPostEMPTutorialFinished.RemoveAll(this);
+		}
+	}
+}
+
+void UCrankItIntroFlowSubsystem::HandlePostEMPTutorialFinished()
+{
+	PrepareLevel();
 }
 
 // DesendTime 到期：停止隧道并播放 Intro 过场（Tag 来自 GameMode::IntroSequenceActorTag）
@@ -472,12 +502,15 @@ void UCrankItIntroFlowSubsystem::CleanupIntroUIAndRestoreGameplay()
 	}
 }
 
-// Skip 教程选 Yes：标记 MineConsole 并播放 TutorialSkipped 字幕轨
+// Skip 教程选 Yes：经 GameplaySubsystem 标记跳过并播放 TutorialSkipped 字幕轨
 void UCrankItIntroFlowSubsystem::TutorialSkipped()
 {
-	if (Cam && Cam->MineConsole)
+	if (UWorld* World = GetWorld())
 	{
-		Cam->MineConsole->bSkipedTutorial = true;
+		if (UCrankItGameplaySubsystem* Gameplay = World->GetSubsystem<UCrankItGameplaySubsystem>())
+		{
+			Gameplay->SetTutorialSkipped(true);
+		}
 	}
 	StopIntroCutsceneAndReturnToGame();
 

@@ -57,6 +57,9 @@ private:
 	void StartSkipTutorialFlow();
 	void OnDescendTimerFired();
 	void UnbindPlayerDirectionChanged();
+	void BindGameplayEvents();
+	void UnbindGameplayEvents();
+	void HandlePostEMPTutorialFinished();
 	void CachePlayerReferences();
 
 	TWeakObjectPtr<AInitLevel> OwnerGameMode;
