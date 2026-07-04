@@ -41,7 +41,7 @@ void UBatterySlotTrigger::SyncOverlappingBatteryChargeState()
 	{
 		if (ABattery* Battery = Cast<ABattery>(Actor))
 		{
-			Battery->canCharge = true;
+			Battery->SetChargingEnabled(true);
 		}
 	}
 }
@@ -110,7 +110,7 @@ void UBatterySlotTrigger::UpdateBatteryReturnMotion(float DeltaTime)
 	if (BatteryReturnAlpha >= 1.f - KINDA_SMALL_NUMBER)
 	{
 		ReturningBattery->RootComp->SetWorldLocationAndRotation(TargetLoc, TargetQuat);
-		ReturningBattery->canCharge = ComponentHasTag(ChargeSlotTag);
+		ReturningBattery->SetChargingEnabled(ComponentHasTag(ChargeSlotTag));
 		ReturningBattery = nullptr;
 		BatteryReturnAlpha = 0.f;
 	}
@@ -125,7 +125,7 @@ void UBatterySlotTrigger::OnBeginOverlap(UPrimitiveComponent* OverlappedComponen
 	}
 	if (ABattery* Battery = Cast<ABattery>(OtherActor))
 	{
-		Battery->canCharge = true;
+		Battery->SetChargingEnabled(true);
 	}
 }
 
@@ -138,6 +138,6 @@ void UBatterySlotTrigger::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AAct
 	}
 	if (ABattery* Battery = Cast<ABattery>(OtherActor))
 	{
-		Battery->canCharge = false;
+		Battery->SetChargingEnabled(false);
 	}
 }

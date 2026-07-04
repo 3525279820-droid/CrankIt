@@ -100,7 +100,7 @@ void AComputerScreenActor::NotifyActorOnClicked(FKey ButtonPressed)
 
 	if (Cam && IsInteractable())
 	{
-		if (PC && FixedCamera && !Cam->bIsInCinematic)
+		if (PC && FixedCamera && !Cam->IsInCinematic())
 		{
 			// 保存原始视角
 			APawn* Pawn = PC->GetPawn();

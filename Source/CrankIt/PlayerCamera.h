@@ -106,7 +106,11 @@ public:
 
 	FRotator DeltaRotation = FRotator::ZeroRotator;
 
-	bool bIsInCinematic = false;
+	/** 过场/教程期间为 true；C++ 外部请用 SetInCinematic / IsInCinematic，勿直接写字段 */
+	void SetInCinematic(bool bInCinematic) { bIsInCinematic = bInCinematic; }
+
+	UFUNCTION(BlueprintPure, Category = "PlayerCamera|Cinematic")
+	bool IsInCinematic() const { return bIsInCinematic; }
 
 	int32 CurrentDirectionIndex = 2;
 
@@ -122,6 +126,8 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	bool bIsInCinematic = false;
 
 	FVector SoundDetectorHoldBaseRelativeLocation = FVector::ZeroVector;
 	float SoundDetectorHoldCurrentLift = 0.f;

@@ -31,7 +31,7 @@ void FBatteryPowerChecker::GetBatteriesInTerminalSlots(UWorld* World, int32 MinC
 			{
 				if (ABattery* Battery = Cast<ABattery>(Actor))
 				{
-					if (Battery->ChargeProgress >= MinChargeLevel)
+					if (Battery->GetChargeProgress() >= MinChargeLevel)
 					{
 						OutBatteries.AddUnique(Battery);
 					}

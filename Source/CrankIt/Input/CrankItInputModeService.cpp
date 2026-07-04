@@ -42,10 +42,10 @@ void UCrankItInputModeService::DisableAllInput(APlayerController* PC)
 	{
 		return;
 	}
-	// 与 PlayerCamera::Tick 中 bIsInCinematic 分支联动，暂停 ChargeHandle 等悬停逻辑
+	// 与 InteractionComponent 联动，暂停 ChargeHandle 等悬停逻辑
 	if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
 	{
-		Cam->bIsInCinematic = true;
+		Cam->SetInCinematic(true);
 	}
 	PC->SetInputMode(FInputModeGameOnly());
 	PC->bShowMouseCursor = false;
@@ -64,7 +64,7 @@ void UCrankItInputModeService::EnableAllInput(APlayerController* PC)
 	}
 	if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
 	{
-		Cam->bIsInCinematic = false;
+		Cam->SetInCinematic(false);
 	}
 	SetExplorationMappingContextEnabled(PC, true);
 	ApplyExplorationInputMode(PC);

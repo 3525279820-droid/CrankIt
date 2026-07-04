@@ -136,7 +136,7 @@ void APlayerCamera::InteractInput(const FInputActionValue& InputActionValue)
 // A/D 转向并更新 CurrentDirectionIndex，广播 OnDirectionChanged
 void APlayerCamera::TurnInput(const FInputActionValue& value)
 {
-	if (bIsInCinematic)
+	if (IsInCinematic())
 	{
 		return;
 	}

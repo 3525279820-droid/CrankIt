@@ -246,12 +246,13 @@ void AMineConsole::ChargeBattery()
 {
 	if (Battery)
 	{
-		if(Battery->ChargeProgress < 3)
+		if(Battery->GetChargeProgress() < 3)
 		{
-			Battery->ChargeProgress += 1;
-			TryShowChargeTutorialSubtitle(Battery->ChargeProgress);
+			const int32 NewLevel = Battery->GetChargeProgress() + 1;
+			Battery->SetChargeProgress(NewLevel);
+			TryShowChargeTutorialSubtitle(NewLevel);
 			UE_LOG(LogTemp, Display, TEXT("Battery Charging...."))
-			UE_LOG(LogTemp, Display, TEXT("Battery Level: %d"), Battery->ChargeProgress)
+			UE_LOG(LogTemp, Display, TEXT("Battery Level: %d"), NewLevel)
 		}
 	}
 }
@@ -267,7 +268,7 @@ void AMineConsole::CheckNeedCharge()
 	for(int32 i = 0; i < 3; i++)
 	{
 		Battery = Batteries.IsValidIndex(i) ? Batteries[i] : nullptr;
-		if(Battery && Battery->ChargeProgress < 3 && Battery->canCharge){
+		if(Battery && !Battery->IsFullyCharged() && Battery->IsChargingEnabled()){
 			ChargeBattery();
 			break;
 		}

@@ -33,10 +33,6 @@ public:
 
 	void CheckNeedCharge();
 
-	// 玩家在 SkipTutorial 中选 Yes 后为 true，不再显示教程字幕
-	UPROPERTY(BlueprintReadWrite, Category = "Tutorial")
-	bool bSkipedTutorial = false;
-
 	// 充电教程字幕已全部展示过（充满 3 格后），不再重复播放
 	UPROPERTY(BlueprintReadWrite, Category = "Tutorial")
 	bool bBatteryFirstCharged = false;
@@ -70,10 +66,6 @@ public:
 
 	TArray<ABattery*> Batteries;
 
-	
-
-	bool ShouldRotate = false;
-	
 	float AngularVelocityYaw = 0.f;
 
 	UPROPERTY(EditAnywhere)
@@ -83,6 +75,9 @@ public:
 
 	// 标记 Skip 教程已选 Yes；外部请优先走 UCrankItGameplaySubsystem::SetTutorialSkipped
 	void SetTutorialSkipped(bool bSkipped);
+
+	UFUNCTION(BlueprintPure, Category = "Tutorial")
+	bool IsTutorialSkipped() const { return bSkipedTutorial; }
 
 	// 是否应在当前朝向下播放 EMP 教程（West=3，与 IntroFlow::SkipTutorialDirectionIndex 一致）
 	bool ShouldShowEMPTutorial(int32 PlayerDirectionIndex) const;
@@ -99,6 +94,11 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	// 玩家在 SkipTutorial 中选 Yes 后为 true；C++ 外部请用 SetTutorialSkipped / IsTutorialSkipped
+	UPROPERTY(BlueprintReadOnly, Category = "Tutorial")
+	bool bSkipedTutorial = false;
 
-
+private:
+	/** 玩家悬停 ChargeHandle 时为 true；外部请用 SetShouldRotate */
+	bool ShouldRotate = false;
 };

@@ -67,7 +67,7 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 			ABattery* Battery = Cast<ABattery>(Actor);
 			if (!Battery) continue;
 
-			if (Battery->ChargeProgress == 3)
+			if (Battery->IsFullyCharged())
 			{
 				// 满电放电前：West 朝向且满足教程条件时播放 EMP 字幕轨（经 Registry + ShouldShowEMPTutorial）
 				if (UWorld* World = GetWorld())
@@ -95,7 +95,6 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 				}
 			
 				if (EMPLight) EMPLight->LightIntensity = 25000.f;
-				Battery->ChargeProgress = 0;
 				Battery->ResetChargeProgress();
 				if(CurrentDirection == Monster->CurrentDirection)
 				{

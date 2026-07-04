@@ -94,12 +94,12 @@ UBatteryHoldComponent* UPlayerInteractionComponent::GetBatteryHold() const
 	return BatteryHoldComponent.Get();
 }
 
-// 过场/教程期间（bIsInCinematic）关闭悬停交互
+// 过场/教程期间关闭悬停交互
 bool UPlayerInteractionComponent::IsInteractionEnabled() const
 {
 	if (const APlayerCamera* Cam = Cast<APlayerCamera>(GetOwner()))
 	{
-		return !Cam->bIsInCinematic;
+		return !Cam->IsInCinematic();
 	}
 	return true;
 }

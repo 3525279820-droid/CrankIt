@@ -291,7 +291,7 @@ void UCrankItIntroFlowSubsystem::PlaySequence(FName SequenceTag, bool bLoop)
 
 	if (Cam)
 	{
-		Cam->bIsInCinematic = true;
+		Cam->SetInCinematic(true);
 		APlayerCamera::SetExplorationMappingContextEnabled(PC, false);
 		PC->SetViewTarget(Cam);
 	}
@@ -345,7 +345,7 @@ void UCrankItIntroFlowSubsystem::ShowSkipTutorial()
 {
 	if (Cam)
 	{
-		Cam->bIsInCinematic = true;
+		Cam->SetInCinematic(true);
 		APlayerCamera::SetExplorationMappingContextEnabled(PC, false);
 	}
 	if (PC)
@@ -495,7 +495,7 @@ void UCrankItIntroFlowSubsystem::CleanupIntroUIAndRestoreGameplay()
 
 	if (Cam)
 	{
-		Cam->bIsInCinematic = false;
+		Cam->SetInCinematic(false);
 		if (PC)
 		{
 			APlayerCamera::SetExplorationMappingContextEnabled(PC, true);

@@ -124,7 +124,7 @@ void UTerminalBatteryHoldController::OnBatteryHoldTick()
 		{
 			if (Battery)
 			{
-				Battery->SetChargeProgress(FMath::Max(0, Battery->ChargeProgress - BatteryDrainAmount));
+				Battery->SetChargeProgress(FMath::Max(0, Battery->GetChargeProgress() - BatteryDrainAmount));
 			}
 		}
 		if (!FBatteryPowerChecker::HasEnoughPower(World, RequiredChargedBatteryCount, MinBatteryChargeLevel))

@@ -17,7 +17,7 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
-	/** 开局时已在盒体内的电池不会收到 BeginOverlap，据此同步 canCharge；下一帧再跑一次以应对首帧碰撞未就绪。 */
+	/** 开局时已在盒体内的电池不会收到 BeginOverlap，据此同步充电状态；下一帧再跑一次以应对首帧碰撞未就绪。 */
 	void SyncOverlappingBatteryChargeState();
 
 public:
