@@ -2,16 +2,16 @@
 
 #include "CrankItNarrativeData.h"
 #include "CrankItTerminalCommandData.h"
-#include "InitLevel.h"
+#include "CrankItGameMode.h"
 #include "GameFramework/GameModeBase.h"
 
-// 注入字幕剧本 Data Asset（通常由 AInitLevel::BeginPlay 调用）
+// 注入字幕剧本 Data Asset（通常由 ACrankItGameMode::BeginPlay 调用）
 void UCrankItNarrativeSubsystem::SetNarrativeData(UCrankItNarrativeData* InData)
 {
 	NarrativeData = InData;
 }
 
-// 注入终端命令 Data Asset（通常由 AInitLevel::BeginPlay 调用）
+// 注入终端命令 Data Asset（通常由 ACrankItGameMode::BeginPlay 调用）
 void UCrankItNarrativeSubsystem::SetTerminalCommandData(UCrankItTerminalCommandData* InData)
 {
 	TerminalCommandData = InData;
@@ -31,15 +31,15 @@ void UCrankItNarrativeSubsystem::RefreshDataFromGameMode() const
 		return;
 	}
 
-	if (AInitLevel* InitLevel = World->GetAuthGameMode<AInitLevel>())
+	if (ACrankItGameMode* GameMode = World->GetAuthGameMode<ACrankItGameMode>())
 	{
 		if (!NarrativeData)
 		{
-			NarrativeData = InitLevel->NarrativeData;
+			NarrativeData = GameMode->NarrativeData;
 		}
 		if (!TerminalCommandData)
 		{
-			TerminalCommandData = InitLevel->TerminalCommandData;
+			TerminalCommandData = GameMode->TerminalCommandData;
 		}
 	}
 }

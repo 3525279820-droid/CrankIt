@@ -29,6 +29,11 @@ void ULightTrigger::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 
 void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
+	if (EMPLight)
+	{
+		EMPLight->PlayButtonPress();
+	}
+
 	// 从世界场景中收集所有盒体槽位组件
 	TArray<UBatterySlotTrigger*> AllSlotBoxes;
 	if (UWorld* World = GetWorld())

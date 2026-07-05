@@ -38,9 +38,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Terminal")
 	void AppendTerminalBlock(UTerminalWidget* Widget, FName BlockId);
 
-	UPROPERTY(EditAnywhere)
-	float DesendTime = 3.f;
-	
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* ScreenMesh;
 

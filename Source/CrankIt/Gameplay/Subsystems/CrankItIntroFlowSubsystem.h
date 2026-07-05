@@ -1,13 +1,13 @@
 #pragma once
 
 // 开场 / 教程流程子系统：过场 Sequence、Skip 教程 UI、方向触发字幕等。
-// AInitLevel 只保留 EditAnywhere 配置与本子系统的启动入口，具体逻辑在此实现。
+// ACrankItGameMode 只保留 EditAnywhere 配置与本子系统的启动入口，具体逻辑在此实现。
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "CrankItIntroFlowSubsystem.generated.h"
 
-class AInitLevel;
+class ACrankItGameMode;
 class APlayerController;
 class APlayerCamera;
 class AComputerScreenActor;
@@ -24,8 +24,8 @@ class CRANKIT_API UCrankItIntroFlowSubsystem : public UWorldSubsystem
 public:
 	virtual void Deinitialize() override;
 
-	// BeginPlay 时由 AInitLevel 调用：缓存 GameMode 配置、订阅方向变化并启动开场定时器
-	void StartIntroFlow(AInitLevel* OwnerGameMode);
+	// BeginPlay 时由 ACrankItGameMode 调用：缓存 GameMode 配置、订阅方向变化并启动开场定时器
+	void StartIntroFlow(ACrankItGameMode* OwnerGameMode);
 
 	// 解锁怪物生成与电脑屏幕点击（通常由 HandlePostEMPTutorialFinished 调用）
 	void PrepareLevel();
@@ -65,7 +65,7 @@ private:
 	void HandlePostEMPTutorialFinished();
 	void CachePlayerReferences();
 
-	TWeakObjectPtr<AInitLevel> OwnerGameMode;
+	TWeakObjectPtr<ACrankItGameMode> OwnerGameMode;
 
 	TWeakObjectPtr<ULevelSequencePlayer> BoundIntroSequencePlayer;
 

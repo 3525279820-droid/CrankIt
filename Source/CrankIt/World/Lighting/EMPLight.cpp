@@ -3,8 +3,6 @@
 
 #include "EMPLight.h"
 
-
-
 // Sets default values
 AEMPLight::AEMPLight()
 {
@@ -25,22 +23,23 @@ AEMPLight::AEMPLight()
 
 	EMPLightRight->SetIntensity(LightIntensity);
 	EMPLightLeft->SetIntensity(LightIntensity);
-
-	
 }
 
-// Called when the game starts or when spawned
 void AEMPLight::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (ButtonMesh)
+	{
+		ButtonRestRelativeLocation = ButtonMesh->GetRelativeLocation();
+	}
 }
 
-// Called every frame
 void AEMPLight::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	ResetLight(DeltaTime);
-
+	UpdateButtonPress(DeltaTime);
 }
 
 void AEMPLight::ResetLight(float DeltaTime)
@@ -50,7 +49,47 @@ void AEMPLight::ResetLight(float DeltaTime)
 		LightIntensity = FMath::FInterpTo(LightIntensity, 0.f, DeltaTime, 5.f);
 		EMPLightLeft->SetIntensity(LightIntensity);
 		EMPLightRight->SetIntensity(LightIntensity);
-
 	}
 }
 
+void AEMPLight::PlayButtonPress()
+{
+	if (!ButtonMesh)
+	{
+		return;
+	}
+
+	ButtonPressPhase = EButtonPressPhase::Pressing;
+	ButtonPressAlpha = 0.f;
+}
+
+void AEMPLight::UpdateButtonPress(float DeltaTime)
+{
+	if (ButtonPressPhase == EButtonPressPhase::Idle || !ButtonMesh)
+	{
+		return;
+	}
+
+	if (ButtonPressPhase == EButtonPressPhase::Pressing)
+	{
+		const float Duration = FMath::Max(ButtonPressDownDuration, KINDA_SMALL_NUMBER);
+		ButtonPressAlpha = FMath::Min(ButtonPressAlpha + DeltaTime / Duration, 1.f);
+		if (ButtonPressAlpha >= 1.f - KINDA_SMALL_NUMBER)
+		{
+			ButtonPressPhase = EButtonPressPhase::Releasing;
+		}
+	}
+	else
+	{
+		const float Duration = FMath::Max(ButtonPressReleaseDuration, KINDA_SMALL_NUMBER);
+		ButtonPressAlpha = FMath::Max(ButtonPressAlpha - DeltaTime / Duration, 0.f);
+		if (ButtonPressAlpha <= KINDA_SMALL_NUMBER)
+		{
+			ButtonPressAlpha = 0.f;
+			ButtonPressPhase = EButtonPressPhase::Idle;
+		}
+	}
+
+	const float PressOffset = ButtonPressAlpha * ButtonPressDistance;
+	ButtonMesh->SetRelativeLocation(ButtonRestRelativeLocation - FVector(0.f, 0.f, PressOffset));
+}

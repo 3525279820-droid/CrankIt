@@ -1,6 +1,6 @@
 #include "CrankItIntroFlowSubsystem.h"
 
-#include "InitLevel.h"
+#include "CrankItGameMode.h"
 #include "Monster.h"
 #include "PlayerCamera.h"
 #include "ComputerScreenActor.h"
@@ -64,15 +64,17 @@ void UCrankItIntroFlowSubsystem::Deinitialize()
 	Super::Deinitialize();
 }
 
-// 由 AInitLevel::BeginPlay 调用：缓存 GameMode、订阅朝向并启动开场定时器
-void UCrankItIntroFlowSubsystem::StartIntroFlow(AInitLevel* InOwnerGameMode)
+// 由 ACrankItGameMode::BeginPlay 调用：缓存 GameMode、订阅朝向并启动开场定时器
+void UCrankItIntroFlowSubsystem::StartIntroFlow(ACrankItGameMode* InOwnerGameMode)
 {
 	if (!InOwnerGameMode)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("GameMode No found！"))
 		return;
 	}
 
 	OwnerGameMode = InOwnerGameMode;
+	UE_LOG(LogTemp, Warning, TEXT("StartIntroFlow！"))
 
 	CachePlayerReferences();
 	UnbindPlayerDirectionChanged();
@@ -172,7 +174,7 @@ void UCrankItIntroFlowSubsystem::OnDescendTimerFired()
 		return;
 	}
 
-	AInitLevel* GM = OwnerGameMode.Get();
+	ACrankItGameMode* GM = OwnerGameMode.Get();
 	if (!GM)
 	{
 		return;
@@ -368,7 +370,7 @@ void UCrankItIntroFlowSubsystem::ShowSkipTutorial()
 // 按 GameMode::TutorialWidgetClasses 顺序显示 SD 教程
 void UCrankItIntroFlowSubsystem::ShowTutorial()
 {
-	AInitLevel* GM = OwnerGameMode.Get();
+	ACrankItGameMode* GM = OwnerGameMode.Get();
 	if (!GM || !PC)
 	{
 		return;
@@ -406,7 +408,7 @@ void UCrankItIntroFlowSubsystem::ShowTutorial()
 	PC->bShowMouseCursor = true;
 }
 
-// 由 GameplaySubsystem 事件或 GameMode::PrepareLevel 转发触发；经 ActorRegistry 解锁关卡元素
+// 由 GameplaySubsystem::OnPostEMPTutorialFinished 等触发；经 ActorRegistry 解锁关卡元素
 void UCrankItIntroFlowSubsystem::PrepareLevel()
 {
 	UWorld* World = GetWorld();

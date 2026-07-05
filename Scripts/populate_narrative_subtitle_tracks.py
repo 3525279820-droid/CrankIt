@@ -27,8 +27,8 @@ PROJECT_ROOT = os.path.normpath(os.path.join(SCRIPT_DIR, ".."))
 SOURCE_DIR = os.path.join(PROJECT_ROOT, "Source", "CrankIt")
 
 CPP_FILES = (
-    "InitLevel.cpp",
-    "MineConsole.cpp",
+    os.path.join("Gameplay", "Subsystems", "CrankItIntroFlowSubsystem.cpp"),
+    os.path.join("Interactables", "MineConsole", "MineConsole.cpp"),
 )
 
 # CrankItNarrativeIds.h → CrankItNarrative::Subtitle（共 8 条轨）

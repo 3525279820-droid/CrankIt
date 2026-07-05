@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Components/PointLightComponent.h"
 
 #include "Battery.generated.h"
 
@@ -23,7 +22,7 @@ public:
 
 	void ResetChargeProgress();
 
-	/** 设置电量并同步指示灯（支持耗电时关灯） */
+	/** 设置电量并同步进度网格可见性（支持耗电时隐藏） */
 	void SetChargeProgress(int32 NewLevel);
 
 	UFUNCTION(BlueprintPure, Category = "Battery")
@@ -46,9 +45,6 @@ public:
 	
 	UPROPERTY(VisibleAnywhere)
 	TArray<UStaticMeshComponent*> BatteryChargeLevels;
-
-	UPROPERTY(VisibleAnywhere)
-	TArray<UPointLightComponent*> BatteryLights;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="UI")
 	int32 ChargeProgress = 0;

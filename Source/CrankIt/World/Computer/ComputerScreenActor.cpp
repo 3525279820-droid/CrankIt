@@ -3,6 +3,7 @@
 
 #include "ComputerScreenActor.h"
 
+#include "CrankItGameMode.h"
 #include "PlayerCamera.h"
 #include "Camera/CameraActor.h"
 #include "Framework/Application/SlateApplication.h"
@@ -51,11 +52,17 @@ void AComputerScreenActor::BeginPlay()
 
 	// ComputerScreen_Startup 已移至 UTerminalWidget::NativeConstruct 作为默认初始文案
 
+	float LiftDesendDelay = GetDefault<ACrankItGameMode>()->DesendTime;
+	if (const ACrankItGameMode* GameMode = GetWorld()->GetAuthGameMode<ACrankItGameMode>())
+	{
+		LiftDesendDelay = GameMode->DesendTime;
+	}
+
 	GetWorldTimerManager().SetTimer(
 		LiftDesendTimerHandle,
 		this,
 		&AComputerScreenActor::SetBeginText,
-		DesendTime,
+		LiftDesendDelay,
 		false
 	);
 }
