@@ -13,6 +13,7 @@ class UTerminalMiniGameHost;
 class UTerminalBatteryHoldController;
 class UClassificationGameWidget;
 class UCalibrationWidget;
+class USoundBase;
 
 /** Terminal/Host — 终端壳：键盘路由、命令提交；显示 / 路由 / 副作用 / 小游戏 / BOORDLE 分模块 */
 UCLASS()
@@ -120,4 +121,22 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Terminal|Battery")
 	int32 BatteryDrainAmount = 1;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Audio")
+	TObjectPtr<USoundBase> KeyInputSound = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Audio")
+	TObjectPtr<USoundBase> BackspaceSound = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Audio")
+	TObjectPtr<USoundBase> SpaceSound = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Audio")
+	TObjectPtr<USoundBase> UnknownCommandSound = nullptr;
+
+	void PlayTerminalSound2D(USoundBase* Sound);
+
+	void ScheduleBoardleScreenClear(TFunction<void()> AfterClear);
+
+	FTimerHandle BoardleDeferredTimerHandle;
 };

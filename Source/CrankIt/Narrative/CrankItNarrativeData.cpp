@@ -25,3 +25,20 @@ bool UCrankItNarrativeData::GetSubtitleTrack(FName TrackId, TArray<FCrankItSubti
 	}
 	return false;
 }
+
+USoundBase* UCrankItNarrativeData::GetSubtitleVoice(FName TrackId) const
+{
+	if (TrackId.IsNone())
+	{
+		return nullptr;
+	}
+
+	for (const FCrankItSubtitleTrackEntry& Entry : SubtitleTracks)
+	{
+		if (Entry.TrackId == TrackId)
+		{
+			return Entry.Voice;
+		}
+	}
+	return nullptr;
+}

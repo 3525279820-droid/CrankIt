@@ -287,11 +287,20 @@ void UClassificationGameWidget::BuildRuntimeImageUI()
 	{
 		UTextBlock* OptionText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass());
 		OptionText->SetText(FText::FromString(OptionNames[i]));
+		ApplyConfiguredFont(OptionText);
 		if (UHorizontalBoxSlot* HSlot = Options->AddChildToHorizontalBox(OptionText))
 		{
 			HSlot->SetPadding(FMargin(12.f, 0.f));
 		}
 		OptionTextBlocks[i] = OptionText;
+	}
+}
+
+void UClassificationGameWidget::ApplyConfiguredFont(UTextBlock* TextBlock) const
+{
+	if (TextBlock && Font.HasValidFont())
+	{
+		TextBlock->SetFont(Font);
 	}
 }
 

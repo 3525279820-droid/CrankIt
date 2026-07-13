@@ -7,9 +7,11 @@
 #include "Components/PointLightComponent.h"
 #include "Battery.h"
 #include "BatterySlotTrigger.h"
+#include "CrankItAudioService.h"
 #include "MineConsole.generated.h"
 
 class UPointLightComponent;
+class USoundBase;
 UCLASS()
 class CRANKIT_API AMineConsole : public AActor
 {
@@ -71,6 +73,9 @@ public:
 	UPROPERTY(EditAnywhere)
 	float SpinVelocity = 800.f;
 
+	UPROPERTY(EditAnywhere, Category = "MineConsole|Audio")
+	TObjectPtr<USoundBase> CrankLoopSound = nullptr;
+
 	void TryShowChargeTutorialSubtitle(int32 NewChargeLevel);
 
 	// 标记 Skip 教程已选 Yes；外部请优先走 UCrankItGameplaySubsystem::SetTutorialSkipped
@@ -101,4 +106,6 @@ protected:
 private:
 	/** 玩家悬停 ChargeHandle 时为 true；外部请用 SetShouldRotate */
 	bool ShouldRotate = false;
+
+	FCrankItSoundHandle CrankLoopSoundHandle;
 };

@@ -5,6 +5,7 @@
 #include "SubtitleSubsystem.h"
 #include "SubtitleWidget.h"
 
+#include "CrankItAudioService.h"
 #include "Components/AudioComponent.h"
 #include "Sound/SoundWave.h"
 #include "Sound/SoundBase.h"
@@ -30,6 +31,7 @@ void USubtitleSubsystem::Deinitialize()
 
 void USubtitleSubsystem::PlaySubtitleTrack(
 	const TArray<FCrankItSubtitleLine>& Lines,
+	USoundBase* Voice,
 	TFunction<void()> OnComplete)
 {
 	UWorld* World = GetWorld();
@@ -52,11 +54,27 @@ void USubtitleSubsystem::PlaySubtitleTrack(
 		Cue.Text = FText::FromString(Line.Text);
 		Cues.Add(Cue);
 	}
-	StartSubtitleTrackWithWorldTime(Cues);
 
 	PendingTrackOnComplete = MoveTemp(OnComplete);
-
 	World->GetTimerManager().ClearTimer(TrackCompleteTimer);
+
+	if (Voice)
+	{
+		if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+		{
+			VoiceSoundHandle = Audio->Play2DTracked(Voice);
+			if (UAudioComponent* VoiceComp = VoiceSoundHandle.AudioComponent.Get())
+			{
+				StartSubtitleTrack(Cues, VoiceComp);
+				return;
+			}
+		}
+
+		UE_LOG(LogSubtitleSubsystem, Warning, TEXT("PlaySubtitleTrack: 语音播放失败，改用世界时间轴。"));
+	}
+
+	StartSubtitleTrackWithWorldTime(Cues);
+
 	if (!PendingTrackOnComplete)
 	{
 		return;
@@ -116,7 +134,21 @@ float USubtitleSubsystem::GetSyncedPlaybackSeconds(UAudioComponent* AudioComp) c
 		return 0.f;
 	}
 	const float P = CachedPlaybackPercent.load(std::memory_order_relaxed);
-	return FMath::Clamp(P, 0.f, 1.f) * Duration;
+	const float FromPercent = FMath::Clamp(P, 0.f, 1.f) * Duration;
+
+	// 2D/UI 语音上 OnAudioPlaybackPercentNative 常不触发，进度会卡在 0，导致永远匹配第一句
+	if (P > 0.001f)
+	{
+		return FromPercent;
+	}
+
+	if (const UWorld* World = GetWorld())
+	{
+		const float Elapsed = static_cast<float>(World->GetTimeSeconds() - TrackStartWorldTimeSeconds);
+		return FMath::Clamp(Elapsed, 0.f, Duration);
+	}
+
+	return FromPercent;
 }
 
 void USubtitleSubsystem::StartSubtitleTrack(const TArray<FCrankItSubtitleCue>& Cues, UAudioComponent* SyncAudio)
@@ -128,7 +160,11 @@ void USubtitleSubsystem::StartSubtitleTrack(const TArray<FCrankItSubtitleCue>& C
 		StartSubtitleTrackWithWorldTime(Cues);
 		return;
 	}
-	StopSubtitles();
+
+	TFunction<void()> SavedOnComplete = MoveTemp(PendingTrackOnComplete);
+	StopSubtitles(SyncAudio);
+	PendingTrackOnComplete = MoveTemp(SavedOnComplete);
+
 	ActiveCues = Cues;
 	ActiveCues.Sort([](const FCrankItSubtitleCue& A, const FCrankItSubtitleCue& B) {
 		return A.StartTimeSeconds < B.StartTimeSeconds;
@@ -137,6 +173,10 @@ void USubtitleSubsystem::StartSubtitleTrack(const TArray<FCrankItSubtitleCue>& C
 	bUseWorldTime = false;
 	bTrackActive = ActiveCues.Num() > 0;
 	CachedPlaybackPercent.store(0.f, std::memory_order_relaxed);
+	if (const UWorld* World = GetWorld())
+	{
+		TrackStartWorldTimeSeconds = World->GetTimeSeconds();
+	}
 	if (UAudioComponent* A = SyncAudioWeak.Get())
 	{
 		A->OnAudioPlaybackPercentNative.AddUObject(this, &USubtitleSubsystem::OnAudioPlaybackPercentNative);
@@ -145,7 +185,10 @@ void USubtitleSubsystem::StartSubtitleTrack(const TArray<FCrankItSubtitleCue>& C
 
 void USubtitleSubsystem::StartSubtitleTrackWithWorldTime(const TArray<FCrankItSubtitleCue>& Cues)
 {
+	TFunction<void()> SavedOnComplete = MoveTemp(PendingTrackOnComplete);
 	StopSubtitles();
+	PendingTrackOnComplete = MoveTemp(SavedOnComplete);
+
 	ActiveCues = Cues;
 	ActiveCues.Sort([](const FCrankItSubtitleCue& A, const FCrankItSubtitleCue& B) {
 		return A.StartTimeSeconds < B.StartTimeSeconds;
@@ -165,6 +208,11 @@ void USubtitleSubsystem::StartSubtitleTrackWithWorldTime(const TArray<FCrankItSu
 
 void USubtitleSubsystem::StopSubtitles()
 {
+	StopSubtitles(nullptr);
+}
+
+void USubtitleSubsystem::StopSubtitles(UAudioComponent* PreserveVoiceComp)
+{
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(TrackCompleteTimer);
@@ -173,6 +221,22 @@ void USubtitleSubsystem::StopSubtitles()
 	if (UAudioComponent* A = SyncAudioWeak.Get())
 	{
 		A->OnAudioPlaybackPercentNative.RemoveAll(this);
+	}
+	if (VoiceSoundHandle.IsValid())
+	{
+		UAudioComponent* VoiceComp = VoiceSoundHandle.AudioComponent.Get();
+		if (!VoiceComp || VoiceComp != PreserveVoiceComp)
+		{
+			if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+			{
+				Audio->Stop(VoiceSoundHandle);
+			}
+			else
+			{
+				VoiceSoundHandle.AudioComponent.Reset();
+				VoiceSoundHandle.WorldSource.Reset();
+			}
+		}
 	}
 	bTrackActive = false;
 	ActiveCues.Reset();
@@ -255,11 +319,10 @@ void USubtitleSubsystem::Tick(float DeltaTime)
 	{
 		return;
 	}
-	// 语音被打断或自然播完：立即清屏并结束轨，避免 UI 悬挂最后一句。
+	// 语音自然播完：收尾并触发 OnComplete
 	if (!Audio->IsPlaying())
 	{
-		SetCurrentSubtitleText(FText::GetEmpty());
-		StopSubtitles();
+		FinishSubtitleTrack();
 		return;
 	}
 

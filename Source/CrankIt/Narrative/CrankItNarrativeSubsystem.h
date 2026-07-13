@@ -10,6 +10,7 @@
 
 class UCrankItNarrativeData;
 class UCrankItTerminalCommandData;
+class USoundBase;
 
 UCLASS()
 class CRANKIT_API UCrankItNarrativeSubsystem : public UWorldSubsystem
@@ -25,6 +26,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Narrative")
 	bool GetSubtitleTrackLines(FName TrackId, TArray<FCrankItSubtitleLine>& OutLines) const;
+
+	// 字幕轨语音
+	UFUNCTION(BlueprintCallable, Category = "Narrative")
+	USoundBase* GetSubtitleVoice(FName TrackId) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Narrative")
 	bool GetTerminalOutputLines(FName BlockId, TArray<FString>& OutLines) const;

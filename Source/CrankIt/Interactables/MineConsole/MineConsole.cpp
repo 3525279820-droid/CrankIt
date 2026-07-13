@@ -4,6 +4,7 @@
 #include "MineConsole.h"
 
 #include "CrankItActorRegistry.h"
+#include "CrankItAudioService.h"
 #include "CrankItGameplaySubsystem.h"
 #include "CrankItNarrativeIds.h"
 #include "CrankItNarrativeSubsystem.h"
@@ -88,7 +89,32 @@ void AMineConsole::Tick(float DeltaTime)
 
 void AMineConsole::SetShouldRotate(bool CanRotate)
 {
+	if (ShouldRotate == CanRotate)
+	{
+		return;
+	}
+
 	ShouldRotate = CanRotate;
+
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		if (CanRotate)
+		{
+			if (ChargeHandle && !Audio->IsPlaying(CrankLoopSoundHandle))
+			{
+				CrankLoopSoundHandle = Audio->PlayAttached3D(
+					CrankLoopSound,
+					ChargeHandle,
+					NAME_None,
+					1.f,
+					true);
+			}
+		}
+		else
+		{
+			Audio->Stop(CrankLoopSoundHandle);
+		}
+	}
 }
 
 void AMineConsole::StartLightingOffSequence()

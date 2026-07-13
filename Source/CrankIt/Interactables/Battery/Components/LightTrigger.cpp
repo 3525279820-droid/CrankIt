@@ -6,6 +6,7 @@
 #include "EMPLight.h"
 #include "EngineUtils.h"
 #include "CrankItActorRegistry.h"
+#include "CrankItAudioService.h"
 #include "MineConsole.h"
 #include "PlayerCamera.h"
 #include "GameFramework/PlayerController.h"
@@ -29,6 +30,11 @@ void ULightTrigger::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 
 void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed)
 {
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		Audio->Play2D(ButtonPressSound);
+	}
+
 	if (EMPLight)
 	{
 		EMPLight->PlayButtonPress();
@@ -99,6 +105,11 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 					}
 				}
 			
+				if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+				{
+					Audio->Play2D(LightTriggerSound);
+				}
+
 				if (EMPLight) EMPLight->LightIntensity = 25000.f;
 				Battery->ResetChargeProgress();
 				if(CurrentDirection == Monster->CurrentDirection)

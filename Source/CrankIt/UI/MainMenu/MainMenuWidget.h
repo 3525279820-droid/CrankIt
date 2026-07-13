@@ -2,9 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "CrankItAudioService.h"
 #include "MainMenuWidget.generated.h"
 
 class UButton;
+class USoundBase;
 class UVerticalBox;
 class UWidget;
 
@@ -15,6 +17,7 @@ class CRANKIT_API UMainMenuWidget : public UUserWidget
 
 public:
 	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
 
 	/** Option 子菜单显隐控制（按需在蓝图事件里调用）。 */
 	UFUNCTION(BlueprintCallable, Category = "MainMenu")
@@ -64,7 +67,14 @@ protected:
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "MainMenu|Widgets")
 	UVerticalBox* CreditsSubMenu = nullptr;
 
+	UPROPERTY(EditAnywhere, Category = "MainMenu|Audio")
+	TObjectPtr<USoundBase> BackgroundMusicSound = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "MainMenu|Audio")
+	TObjectPtr<USoundBase> ButtonClickSound = nullptr;
+
 private:
+	void PlayButtonClickSound();
 	UFUNCTION()
 	void OnStartButtonClicked();
 
@@ -78,4 +88,6 @@ private:
 	void OnExitButtonClicked();
 
 	void SetSubMenuVisibility(UWidget* MenuWidget, bool bVisible);
+
+	FCrankItSoundHandle BackgroundMusicHandle;
 };

@@ -5,11 +5,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "CrankItAudioService.h"
 #include "CrankItGameMode.generated.h"
 
 class UCrankItNarrativeData;
 class UCrankItTerminalCommandData;
 class USDTutorialWidget;
+class USoundBase;
 
 UCLASS()
 class CRANKIT_API ACrankItGameMode : public AGameModeBase
@@ -21,6 +23,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
 	// 教程 Widget 类列表（须继承 USDTutorialWidget）；IntroFlow 按序显示，关闭后索引自增
@@ -42,4 +45,10 @@ public:
 	// 终端命令顺序、输出块与 ActionId 映射；供 UCrankItNarrativeSubsystem / TerminalWidget 读取
 	UPROPERTY(EditDefaultsOnly, Category = "Narrative")
 	TObjectPtr<UCrankItTerminalCommandData> TerminalCommandData;
+
+	UPROPERTY(EditAnywhere, Category = "Audio")
+	TObjectPtr<USoundBase> LevelBackgroundMusicSound = nullptr;
+
+private:
+	FCrankItSoundHandle LevelBackgroundMusicHandle;
 };

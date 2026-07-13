@@ -7,6 +7,8 @@
 
 #include "Battery.generated.h"
 
+class USoundBase;
+
 UCLASS()
 class CRANKIT_API ABattery : public AActor
 {
@@ -36,6 +38,14 @@ public:
 	bool IsChargingEnabled() const { return bCanCharge; }
 
 	void SetChargingEnabled(bool bEnabled) { bCanCharge = bEnabled; }
+
+	void PlayInteractionSound();
+
+	UPROPERTY(EditAnywhere, Category = "Battery|Audio")
+	TObjectPtr<USoundBase> ChargeLevelSound = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Battery|Audio")
+	TObjectPtr<USoundBase> InteractionSound = nullptr;
 
 	UPROPERTY(VisibleAnywhere)
 	USceneComponent* RootComp;

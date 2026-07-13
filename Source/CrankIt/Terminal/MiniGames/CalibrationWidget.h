@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Fonts/SlateFontInfo.h"
 #include "CalibrationWidget.generated.h"
 
 class UBorder;
@@ -50,6 +51,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Calibration|Style")
 	FLinearColor MainColor = FLinearColor::Green;
 
+	/** 编辑器中指定的字体，应用于标题、状态与行列标签 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Calibration|Style")
+	FSlateFontInfo Font;
+
 protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 
@@ -58,6 +63,7 @@ private:
 	void RefreshRuntimeTextUI();
 	void MoveCurrentBlockRight();
 	void RestartMoveTimer();
+	void ApplyConfiguredFont(UTextBlock* TextBlock) const;
 
 	/** 当前局内实际使用的移动间隔（从 MoveInterval 开局，每成功一行递减） */
 	float ActiveMoveInterval = 0.2f;

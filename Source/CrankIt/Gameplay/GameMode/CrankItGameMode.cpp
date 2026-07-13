@@ -2,6 +2,7 @@
 
 #include "CrankItIntroFlowSubsystem.h"
 #include "CrankItNarrativeSubsystem.h"
+#include "CrankItAudioService.h"
 
 ACrankItGameMode::ACrankItGameMode()
 {
@@ -12,6 +13,12 @@ void ACrankItGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 	UE_LOG(LogTemp, Log, TEXT("CrankItGameMode: BeginPlay"));
+
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		LevelBackgroundMusicHandle = Audio->Play2DLoop(LevelBackgroundMusicSound);
+	}
+
 	if (UWorld* World = GetWorld())
 	{
 		if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
@@ -26,4 +33,13 @@ void ACrankItGameMode::BeginPlay()
 			IntroFlow->StartIntroFlow(this);
 		}
 	}
+}
+
+void ACrankItGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		Audio->Stop(LevelBackgroundMusicHandle);
+	}
+	Super::EndPlay(EndPlayReason);
 }

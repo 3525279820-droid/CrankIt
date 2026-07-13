@@ -2,9 +2,16 @@
 
 #include "SkipTutorialWidget.h"
 
+#include "CrankItAudioService.h"
+
 void USkipTutorialWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		BackgroundMusicHandle = Audio->Play2DLoop(BackgroundMusicSound);
+	}
 
 	if (YesButton)
 	{
@@ -18,14 +25,33 @@ void USkipTutorialWidget::NativeConstruct()
 	}
 }
 
+void USkipTutorialWidget::NativeDestruct()
+{
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		Audio->Stop(BackgroundMusicHandle);
+	}
+	Super::NativeDestruct();
+}
+
+void USkipTutorialWidget::PlayButtonClickSound()
+{
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		Audio->Play2D(ButtonClickSound);
+	}
+}
+
 void USkipTutorialWidget::OnYesClicked()
 {
+	PlayButtonClickSound();
 	bSkipedTutorial = true;
 	YesButtonClicked.Broadcast();
 }
 
 void USkipTutorialWidget::OnNoClicked()
 {
+	PlayButtonClickSound();
 	bSkipedTutorial = false;
 	NoButtonClicked.Broadcast();
 }

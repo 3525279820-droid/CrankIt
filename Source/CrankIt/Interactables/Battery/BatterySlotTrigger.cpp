@@ -76,6 +76,7 @@ void UBatterySlotTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent,
 	ABattery* HeldBattery = HoldComp->ReleaseHeldBattery();
 	if (HeldBattery && HeldBattery->RootComp)
 	{
+		HeldBattery->PlayInteractionSound();
 		ReturningBattery = HeldBattery;
 
 		BatteryReturnStartLoc = HeldBattery->RootComp->GetComponentLocation();

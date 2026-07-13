@@ -2,10 +2,16 @@
 
 #include "Components/Button.h"
 #include "Components/VerticalBox.h"
+#include "CrankItAudioService.h"
 
 void UMainMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		BackgroundMusicHandle = Audio->Play2DLoop(BackgroundMusicSound);
+	}
 
 	if (StartButton)
 	{
@@ -31,6 +37,23 @@ void UMainMenuWidget::NativeConstruct()
 	// 初始默认收起子菜单，可在蓝图中按需调整。
 	SetOptionSubMenuVisible(false);
 	SetCreditsSubMenuVisible(false);
+}
+
+void UMainMenuWidget::NativeDestruct()
+{
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		Audio->Stop(BackgroundMusicHandle);
+	}
+	Super::NativeDestruct();
+}
+
+void UMainMenuWidget::PlayButtonClickSound()
+{
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		Audio->Play2D(ButtonClickSound);
+	}
 }
 
 void UMainMenuWidget::SetOptionSubMenuVisible(bool bVisible)
@@ -65,23 +88,27 @@ void UMainMenuWidget::ToggleCreditsSubMenu()
 
 void UMainMenuWidget::OnStartButtonClicked()
 {
+	PlayButtonClickSound();
 	HandleStartClicked();
 }
 
 void UMainMenuWidget::OnOptionButtonClicked()
 {
+	PlayButtonClickSound();
 	ToggleOptionSubMenu();
 	HandleOptionClicked();
 }
 
 void UMainMenuWidget::OnCreditsButtonClicked()
 {
+	PlayButtonClickSound();
 	ToggleCreditsSubMenu();
 	HandleCreditsClicked();
 }
 
 void UMainMenuWidget::OnExitButtonClicked()
 {
+	PlayButtonClickSound();
 	HandleExitClicked();
 }
 

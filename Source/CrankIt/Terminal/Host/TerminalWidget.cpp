@@ -7,6 +7,7 @@
 #include "CrankItNarrativeSubsystem.h"
 #include "CrankItNarrativeIds.h"
 #include "TerminalActionDispatcher.h"
+#include "CrankItAudioService.h"
 
 void UTerminalWidget::AppendTerminalOutputBlock(FName BlockId)
 {
@@ -66,6 +67,9 @@ void UTerminalWidget::ApplyBoardleOutcomes(const TArray<FBoardleGuessOutcome>& O
 		return;
 	}
 
+	bool bScheduleScreenClear = false;
+	TFunction<void()> AfterScreenClear;
+
 	for (const FBoardleGuessOutcome& Outcome : Outcomes)
 	{
 		switch (Outcome.Kind)
@@ -74,7 +78,12 @@ void UTerminalWidget::ApplyBoardleOutcomes(const TArray<FBoardleGuessOutcome>& O
 			Display->AddPendingLine(Outcome.Text);
 			break;
 		case FBoardleGuessOutcome::EKind::RoundWon:
-			AppendTerminalOutputBlock(CrankItNarrative::Terminal::Boordle_GuessCorrectFollowup);
+			bScheduleScreenClear = true;
+			AfterScreenClear = [this]()
+			{
+				AppendTerminalOutputBlock(CrankItNarrative::Terminal::Boordle_GuessCorrectFollowup);
+				Display->StartDisplayingLines();
+			};
 			break;
 		case FBoardleGuessOutcome::EKind::RoundLost:
 			AppendTerminalOutputBlock(CrankItNarrative::Terminal::Boordle_OutOfGuessesPrefix);
@@ -82,10 +91,11 @@ void UTerminalWidget::ApplyBoardleOutcomes(const TArray<FBoardleGuessOutcome>& O
 			Display->AddPendingLine(TEXT("Starting new round..."));
 			if (Outcome.bScheduleReset)
 			{
-				Display->SetOneShotTimer(2.5f, [this]()
+				bScheduleScreenClear = true;
+				AfterScreenClear = [this]()
 				{
 					BoardleGame.ResetRound();
-				});
+				};
 			}
 			break;
 		default:
@@ -94,6 +104,51 @@ void UTerminalWidget::ApplyBoardleOutcomes(const TArray<FBoardleGuessOutcome>& O
 	}
 
 	Display->StartDisplayingLines();
+
+	if (bScheduleScreenClear)
+	{
+		ScheduleBoardleScreenClear(MoveTemp(AfterScreenClear));
+	}
+}
+
+void UTerminalWidget::ScheduleBoardleScreenClear(TFunction<void()> AfterClear)
+{
+	if (!Display)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	World->GetTimerManager().ClearTimer(BoardleDeferredTimerHandle);
+
+	World->GetTimerManager().SetTimer(
+		BoardleDeferredTimerHandle,
+		FTimerDelegate::CreateWeakLambda(this, [this, AfterClear = MoveTemp(AfterClear)]() mutable
+		{
+			if (!Display)
+			{
+				return;
+			}
+
+			Display->ClearDisplayTimer();
+			Display->ClearTerminal();
+			Display->ClearPendingLines();
+			Display->ClearInputLine();
+
+			if (AfterClear)
+			{
+				AfterClear();
+			}
+
+			Display->UpdateDisplay();
+		}),
+		2.5f,
+		false);
 }
 
 void UTerminalWidget::CommitBoardleGuess()
@@ -147,6 +202,14 @@ void UTerminalWidget::NativeConstruct()
 	Display->StartDisplayingLines();
 }
 
+void UTerminalWidget::PlayTerminalSound2D(USoundBase* Sound)
+{
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		Audio->Play2D(Sound);
+	}
+}
+
 void UTerminalWidget::StartDisplayingLinesProcedure(float Delay, TFunction<void()> OnProcedureComplete)
 {
 	if (Display)
@@ -157,6 +220,10 @@ void UTerminalWidget::StartDisplayingLinesProcedure(float Delay, TFunction<void(
 
 void UTerminalWidget::NativeDestruct()
 {
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(BoardleDeferredTimerHandle);
+	}
 	if (Display)
 	{
 		Display->ClearDisplayTimer();
@@ -234,6 +301,7 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
 	}
 	if (Key == EKeys::BackSpace)
 	{
+		PlayTerminalSound2D(BackspaceSound);
 		Display->RemoveLastInputChar();
 		Display->UpdateDisplay();
 		return FReply::Handled();
@@ -252,6 +320,7 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
 		{
 			if ((Char == TEXT('0') || Char == TEXT('1')) && Display->GetCurrentInputLine().Len() < BoardleGame.GetBinaryLength())
 			{
+				PlayTerminalSound2D(KeyInputSound);
 				Display->AppendCharToInputLine(Char);
 				CommitBoardleGuess();
 				Display->UpdateDisplay();
@@ -259,6 +328,14 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
 		}
 		else
 		{
+			if (Char == TEXT(' '))
+			{
+				PlayTerminalSound2D(SpaceSound);
+			}
+			else
+			{
+				PlayTerminalSound2D(KeyInputSound);
+			}
 			Display->AppendCharToInputLine(Char);
 			Display->UpdateDisplay();
 		}
@@ -304,6 +381,7 @@ void UTerminalWidget::ShowStageCommandError(const FString& SubmittedInput)
 	CurrentStageErrorText = ErrorLine + TEXT("\n");
 	Display->AddPendingLine(ErrorLine);
 	bErrorShownForCurrentCommand = true;
+	PlayTerminalSound2D(UnknownCommandSound);
 	Display->StartDisplayingLines();
 }
 
@@ -372,6 +450,7 @@ void UTerminalWidget::CommitInput()
 		else
 		{
 			Display->AddPendingLine(FString::Printf(TEXT("Unknown command: %s"), *Result.MatchedCommand));
+			PlayTerminalSound2D(UnknownCommandSound);
 			Display->StartDisplayingLines();
 		}
 		break;

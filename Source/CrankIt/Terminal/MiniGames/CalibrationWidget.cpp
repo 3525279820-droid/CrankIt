@@ -166,10 +166,12 @@ void UCalibrationWidget::BuildRuntimeTextUI()
 	UTextBlock* TitleText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("CalibrationTitle"));
 	TitleText->SetText(FText::FromString(TEXT("CALIBRATION")));
 	TitleText->SetColorAndOpacity(MainColor);
+	ApplyConfiguredFont(TitleText);
 	RuntimeRoot->AddChildToVerticalBox(TitleText);
 
 	StatusText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("CalibrationStatus"));
 	StatusText->SetColorAndOpacity(MainColor);
+	ApplyConfiguredFont(StatusText);
 	if (UVerticalBoxSlot* StatusSlot = RuntimeRoot->AddChildToVerticalBox(StatusText))
 	{
 		StatusSlot->SetPadding(FMargin(0.f, 4.f, 0.f, 8.f));
@@ -200,6 +202,7 @@ void UCalibrationWidget::BuildRuntimeTextUI()
 		UTextBlock* RowLabel = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass());
 		RowLabel->SetText(FText::FromString(FString::FromInt(LogicalRow + 1)));
 		RowLabel->SetColorAndOpacity(MainColor);
+		ApplyConfiguredFont(RowLabel);
 		if (UGridSlot* RowSlot = BoardGrid->AddChildToGrid(RowLabel, DisplayRow, 0))
 		{
 			RowSlot->SetHorizontalAlignment(HAlign_Right);
@@ -237,6 +240,7 @@ void UCalibrationWidget::BuildRuntimeTextUI()
 		UTextBlock* ColLabel = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass());
 		ColLabel->SetText(FText::FromString(FString::Chr(TEXT('A') + Col)));
 		ColLabel->SetColorAndOpacity(MainColor);
+		ApplyConfiguredFont(ColLabel);
 		if (UGridSlot* ColSlot = BoardGrid->AddChildToGrid(ColLabel, GridSize, Col + 1))
 		{
 			ColSlot->SetHorizontalAlignment(HAlign_Center);
@@ -244,6 +248,14 @@ void UCalibrationWidget::BuildRuntimeTextUI()
 			ColSlot->SetPadding(FMargin(2.f, 6.f, 2.f, 2.f));
 		}
 		ColLabelTexts[Col] = ColLabel;
+	}
+}
+
+void UCalibrationWidget::ApplyConfiguredFont(UTextBlock* TextBlock) const
+{
+	if (TextBlock && Font.HasValidFont())
+	{
+		TextBlock->SetFont(Font);
 	}
 }
 

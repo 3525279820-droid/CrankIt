@@ -71,7 +71,8 @@ void UCrankItNarrativeSubsystem::PlaySubtitleTrack(FName TrackId, TFunction<void
 	// 实际播放入口仍走 USubtitleSubsystem
 	if (USubtitleSubsystem* SubtitleSys = World->GetSubsystem<USubtitleSubsystem>())
 	{
-		SubtitleSys->PlaySubtitleTrack(Lines, MoveTemp(OnComplete));
+		USoundBase* Voice = GetSubtitleVoice(TrackId);
+		SubtitleSys->PlaySubtitleTrack(Lines, Voice, MoveTemp(OnComplete));
 	}
 	else if (OnComplete)
 	{
@@ -90,6 +91,16 @@ bool UCrankItNarrativeSubsystem::GetSubtitleTrackLines(FName TrackId, TArray<FCr
 		return NarrativeData->GetSubtitleTrack(TrackId, OutLines);
 	}
 	return false;
+}
+
+USoundBase* UCrankItNarrativeSubsystem::GetSubtitleVoice(FName TrackId) const
+{
+	RefreshDataFromGameMode();
+	if (NarrativeData)
+	{
+		return NarrativeData->GetSubtitleVoice(TrackId);
+	}
+	return nullptr;
 }
 
 // 查询终端输出块（BlockId 见 CrankItNarrativeIds.h）

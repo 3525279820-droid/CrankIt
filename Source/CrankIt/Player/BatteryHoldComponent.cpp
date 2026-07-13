@@ -46,6 +46,7 @@ void UBatteryHoldComponent::TryPickup(ABattery* Battery)
 		PickupStartQuat = BatteryMovingToHold->RootComp->GetComponentQuat();
 		PickupMoveAlpha = 0.f;
 	}
+	Battery->PlayInteractionSound();
 }
 
 // 槽位点击时取回手中电池并清空持有状态（槽位侧负责放回动画）

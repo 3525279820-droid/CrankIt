@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Fonts/SlateFontInfo.h"
 #include "ClassificationGameWidget.generated.h"
 
 class UBorder;
@@ -80,6 +81,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Config", meta = (ClampMin = "16"))
 	float CellImageSize = 56.f;
 
+	/** 编辑器中指定的字体，应用于底部类别选项文字 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Style")
+	FSlateFontInfo Font;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Classification|State")
 	TArray<FClassificationItem> Items;
 
@@ -96,6 +101,7 @@ private:
 	void RefreshRuntimeImageUI();
 	void ApplyCellImageBrush(UImage* ImageWidget, UTexture2D* Texture) const;
 	void ApplyCellBorderState(UBorder* Border, bool bCursor, bool bDone) const;
+	void ApplyConfiguredFont(UTextBlock* TextBlock) const;
 	FString CategoryToString(EClassificationCategory Category) const;
 
 	UPROPERTY(Transient)

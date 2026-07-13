@@ -6,13 +6,12 @@
 
 namespace CrankItNarrative
 {
-	// 字幕轨 ID（UCrankItNarrativeData::SubtitleTracks）
+	// 字幕轨 ID（UCrankItNarrativeData::SubtitleTracks
 	namespace Subtitle
 	{
 		inline const FName Intro_SkipTutorialPrompt(TEXT("Intro_SkipTutorialPrompt"));
 		inline const FName TutorialSkipped(TEXT("TutorialSkipped"));
 		inline const FName TutorialNotSkipped_GordonIntro(TEXT("TutorialNotSkipped_GordonIntro"));
-		inline const FName PostTutorial(TEXT("PostTutorial"));
 		inline const FName ChargeTutorial_Level1(TEXT("ChargeTutorial_Level1"));
 		inline const FName ChargeTutorial_Level2(TEXT("ChargeTutorial_Level2"));
 		inline const FName ChargeTutorial_Level3(TEXT("ChargeTutorial_Level3"));

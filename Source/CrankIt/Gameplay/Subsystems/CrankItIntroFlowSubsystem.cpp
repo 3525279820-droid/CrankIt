@@ -237,14 +237,6 @@ void UCrankItIntroFlowSubsystem::OnTutorialClosed()
 		return;
 	}
 	APlayerCamera::ApplyExplorationInputMode(PC);
-
-	if (UWorld* World = GetWorld())
-	{
-		if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
-		{
-			Narrative->PlaySubtitleTrack(CrankItNarrative::Subtitle::PostTutorial, []() {});
-		}
-	}
 }
 
 // 显示 A/D 移动键提示（Widget 类来自 APlayerCamera::KeyPromptWidgetClass）

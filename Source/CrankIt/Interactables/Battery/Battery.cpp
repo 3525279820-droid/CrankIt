@@ -3,6 +3,8 @@
 
 #include "Battery.h"
 
+#include "CrankItAudioService.h"
+
 // Sets default values
 ABattery::ABattery()
 {
@@ -54,6 +56,14 @@ void ABattery::ShowChargeProgress()
 	UE_LOG(LogTemp, Display, TEXT("Battery charge level visible: %d"), Idx);
 }
 
+void ABattery::PlayInteractionSound()
+{
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		Audio->Play2D(InteractionSound);
+	}
+}
+
 void ABattery::ResetChargeProgress()
 {
 	SetChargeProgress(0);
@@ -61,6 +71,7 @@ void ABattery::ResetChargeProgress()
 
 void ABattery::SetChargeProgress(int32 NewLevel)
 {
+	const int32 PreviousLevel = ChargeProgress;
 	ChargeProgress = FMath::Clamp(NewLevel, 0, 3);
 	for (int32 i = 0; i < 3; ++i)
 	{
@@ -68,6 +79,14 @@ void ABattery::SetChargeProgress(int32 NewLevel)
 		if (BatteryChargeLevels.IsValidIndex(i))
 		{
 			BatteryChargeLevels[i]->SetVisibility(bOn);
+		}
+	}
+
+	if (ChargeProgress > PreviousLevel && ChargeProgress > 0)
+	{
+		if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+		{
+			Audio->Play2D(ChargeLevelSound);
 		}
 	}
 }

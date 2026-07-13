@@ -11,6 +11,9 @@
 #include "Monster.h"
 
 #include "LightTrigger.generated.h"
+
+class USoundBase;
+
 /**
  * 
  */
@@ -47,4 +50,10 @@ public:
 
 	UPROPERTY(EditAnywhere, Category="Battery")
 	TArray<FName> SlotTags;   // 这个开关负责的槽位的标签集合（组件标签）
+
+	UPROPERTY(EditAnywhere, Category = "LightTrigger|Audio")
+	TObjectPtr<USoundBase> ButtonPressSound = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "LightTrigger|Audio")
+	TObjectPtr<USoundBase> LightTriggerSound = nullptr;
 };
