@@ -83,10 +83,11 @@ void UTerminalMiniGameHost::EnterClassificationGame()
 	Display->UpdateDisplay();
 
 	ClassificationGameWidget->SetVisibility(ESlateVisibility::Visible);
-	ClassificationGameWidget->StartGame();
 
+	// StartGame 在无图时会立刻 Broadcast，须先绑定
 	ClassificationGameWidget->OnGameFinished.RemoveAll(this);
 	ClassificationGameWidget->OnGameFinished.AddDynamic(this, &UTerminalMiniGameHost::HandleClassificationGameFinished);
+	ClassificationGameWidget->StartGame();
 }
 
 // 分类结束：写入 Narrative 输出块并退回终端模式

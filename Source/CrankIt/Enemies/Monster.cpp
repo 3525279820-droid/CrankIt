@@ -1,15 +1,11 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "Monster.h"
 
 #include "PlayerCamera.h"
+#include "CrankItGameplaySubsystem.h"
 #include "Kismet/GameplayStatics.h"
 
-// Sets default values
 AMonster::AMonster()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	AdvanceCount = 0;
 
@@ -25,14 +21,14 @@ AMonster::AMonster()
 	AppearAudioComponent->bAutoActivate = false;
 }
 
-// Called when the game starts or when spawned
 void AMonster::BeginPlay()
 {
 	Super::BeginPlay();
 	PlayerActor = Cast<APlayerCamera>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
 	MonsterBase->SetVisibility(false);
-
 }
+
+// 在玩家东/西/北随机方位瞬移出现，并播放空间出现音
 void AMonster::SpawnAtRandomDirection(APlayerCamera* Player)
 {
 	if (!Player) return;
@@ -42,19 +38,21 @@ void AMonster::SpawnAtRandomDirection(APlayerCamera* Player)
 	CurrentDirection = Directions[FMath::RandRange(0, Directions.Num() - 1)];
 	bIsActive = true;
 	FVector SpawnLocation = PlayerLocation;
-	if (CurrentDirection == "East") SpawnLocation += FVector(0.f, 500.f, 100.f);
-	else if (CurrentDirection == "West") SpawnLocation += FVector(0.f, -500.f, 100.f);
-	else if (CurrentDirection == "North") SpawnLocation += FVector(500.f, 0.f, 100.f);
+	if (CurrentDirection == "East") SpawnLocation += FVector(0.f, SpawnDistance, 100.f);
+	else if (CurrentDirection == "West") SpawnLocation += FVector(0.f, -SpawnDistance, 100.f);
+	else if (CurrentDirection == "North") SpawnLocation += FVector(SpawnDistance, 0.f, 100.f);
 	UE_LOG(LogTemp, Display, TEXT("怪物生成在：%s"), *CurrentDirection);
 
 	SetActorLocation(SpawnLocation);
 	if (MonsterAppearSound && AppearAudioComponent)
 	{
 		AppearAudioComponent->SetSound(MonsterAppearSound);
-		AppearAudioComponent->Play(); // 世界位置随 Root，与生成方位一致
+		// 世界位置随 Root，与生成方位一致
+		AppearAudioComponent->Play();
 	}
 }
 
+// 定时逼近；超过 MaxAdvanceCount 则停生成并触发 JumpScare
 void AMonster::AdvanceTowardsPlayer()
 {
 	AdvanceCount++;
@@ -63,16 +61,47 @@ void AMonster::AdvanceTowardsPlayer()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Game Over! Monster reached the player."));
 		GetWorldTimerManager().ClearTimer(AdvanceTimerHandle);
+		bSpawnable = false;
+		bTimerStarted = false;
+
+		if (UWorld* World = GetWorld())
+		{
+			if (UCrankItGameplaySubsystem* Gameplay = World->GetSubsystem<UCrankItGameplaySubsystem>())
+			{
+				Gameplay->TriggerGameOverJumpScare(this);
+			}
+		}
 		return;
 	}
 
-	// 怪物瞬移靠近玩家
+	if (!PlayerActor)
+	{
+		return;
+	}
+
+	// 沿玩家方向瞬移一步
 	FVector Direction = (PlayerActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 	SetActorLocation(GetActorLocation() + Direction * AdvanceStep);
 
 	UE_LOG(LogTemp, Display, TEXT("Monster advanced. Count: %d"), AdvanceCount);
 }
 
+// 停逼近逻辑、对齐跳杀占位 Transform，并强制显示网格体（bSpawnable=false 后 Tick 不再改可见性）
+void AMonster::BeginGameOverJumpScare(const FTransform& Pose)
+{
+	GetWorldTimerManager().ClearTimer(AdvanceTimerHandle);
+	bSpawnable = false;
+	bIsActive = false;
+	bTimerStarted = false;
+
+	SetActorTransform(Pose);
+	if (MonsterBase)
+	{
+		MonsterBase->SetVisibility(true);
+	}
+}
+
+// 灯光驱赶：隐藏逻辑上失活，延迟后重新 SpawnAtRandomDirection
 void AMonster::Repel()
 {
 	if (!bIsActive)
@@ -81,53 +110,47 @@ void AMonster::Repel()
 		return;
 	}
 	UE_LOG(LogTemp, Display, TEXT("Monster repelled by light!"));
-	// 清除前进定时器
-	bIsActive=false;
+
+	bIsActive = false;
 	GetWorldTimerManager().ClearTimer(AdvanceTimerHandle);
-	
-	// 重置前进次数
 	AdvanceCount = 0;
 
-	// 随机等待时间
-	float Delay = FMath::RandRange(2.f, 6.f);
+	const float DelayMin = FMath::Min(RespawnDelayMin, RespawnDelayMax);
+	const float DelayMax = FMath::Max(RespawnDelayMin, RespawnDelayMax);
+	const float Delay = FMath::RandRange(DelayMin, DelayMax);
 	UE_LOG(LogTemp, Display, TEXT("Monster respawn in %f"), Delay);
 
-	// 设置延迟生成定时器
 	FTimerHandle RespawnHandle;
 	GetWorldTimerManager().SetTimer(RespawnHandle, [this]()
 	{
 		SpawnAtRandomDirection(PlayerActor);
-		// 重新启动前进定时器
 		GetWorldTimerManager().SetTimer(AdvanceTimerHandle, this, &AMonster::AdvanceTowardsPlayer, AdvanceInterval, true);
 	}, Delay, false);
 }
-// Called every frame
+
+// bSpawnable 后首次生成，并按 bIsActive 同步网格可见性
 void AMonster::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if(bSpawnable)
+	if (bSpawnable)
 	{
-		if(!bIsSpawned)
+		if (!bIsSpawned)
 		{
 			bIsSpawned = true;
 			SpawnAtRandomDirection(PlayerActor);
 		}
-		// 启动定时器
-		if(!bTimerStarted)
+		if (!bTimerStarted)
 		{
 			GetWorldTimerManager().SetTimer(AdvanceTimerHandle, this, &AMonster::AdvanceTowardsPlayer, AdvanceInterval, true);
 			bTimerStarted = true;
 		}
-		if(!bIsActive && MonsterBase->IsVisible())
+		if (!bIsActive && MonsterBase->IsVisible())
 		{
 			MonsterBase->SetVisibility(false);
 		}
-		else if(bIsActive && !MonsterBase->IsVisible())
+		else if (bIsActive && !MonsterBase->IsVisible())
 		{
 			MonsterBase->SetVisibility(true);
 		}
 	}
-
-
 }
-

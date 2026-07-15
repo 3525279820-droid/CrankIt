@@ -43,6 +43,7 @@ void UClassificationGameWidget::StartGame()
 		UE_LOG(LogTemp, Warning,
 			TEXT("ClassificationGameWidget: Failed to load images from '%s'."),
 			*ImageContentPath);
+		// TODO:待修改，临时没有图片时直接跳过游戏
 		OnGameFinished.Broadcast(false);
 		return;
 	}

@@ -11,6 +11,7 @@ void FTerminalCommandRouter::ApplyDefaultCommandToActionMap(TMap<FString, FName>
 	OutMap.Add(TEXT("CALIBRATE"), CrankItTerminalAction::Calibrate);
 	OutMap.Add(TEXT("UPDATE SYSTEM"), CrankItTerminalAction::UpdateSystem);
 	OutMap.Add(TEXT("LIFT QUARANTINE"), CrankItTerminalAction::LiftQuarantine);
+	OutMap.Add(TEXT(""), CrankItTerminalAction::EnterClassificationGame);
 	OutMap.Add(TEXT("CALIBRATE NORTH ENTRY DOOR"), CrankItTerminalAction::CalibrateNorthEntryDoor);
 	OutMap.Add(TEXT("ASCEND"), CrankItTerminalAction::Ascend);
 }

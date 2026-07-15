@@ -49,6 +49,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Audio")
 	TObjectPtr<USoundBase> LevelBackgroundMusicSound = nullptr;
 
+	// 失败 JumpScare 与 Sequence 同时触发的 2D 音效（SoundCue / SoundWave）；由 GameplaySubsystem 经 AudioService 播放
+	UPROPERTY(EditAnywhere, Category = "Audio|JumpScare")
+	TObjectPtr<USoundBase> JumpScareSound = nullptr;
+
 private:
 	FCrankItSoundHandle LevelBackgroundMusicHandle;
 };

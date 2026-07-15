@@ -18,7 +18,7 @@ void UTerminalActionDispatcher::Initialize(UTerminalWidget* InHost, UTerminalDis
 	RegisterActions();
 }
 
-// 注册各 ActionId 对应的副作用（迁移自原 TerminalWidget::SetupCommandActions）
+// 注册各 ActionId 对应的副作用
 void UTerminalActionDispatcher::RegisterActions()
 {
 	ActionHandlers.Empty();
