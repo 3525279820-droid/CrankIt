@@ -70,7 +70,7 @@ public:
 
 	// Content 根路径，默认 /Game/Terminal/ClassificationGame；其下按 Animal / Fruit / Sport 分子目录
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Config")
-	FString ImageContentPath = TEXT("/Game/Terminal/ClassificationGame");
+	FString ImageContentPath = TEXT("ClassificationGame");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Config")
 	int32 GridRows = 3;

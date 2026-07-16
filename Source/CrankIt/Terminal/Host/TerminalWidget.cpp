@@ -481,11 +481,11 @@ void UTerminalWidget::ExitClassificationGame()
 	}
 }
 
-void UTerminalWidget::EnterCalibrationGame()
+void UTerminalWidget::EnterCalibrationGame(TFunction<void(bool)> OnComplete)
 {
 	if (MiniGameHost)
 	{
-		MiniGameHost->EnterCalibrationGame();
+		MiniGameHost->EnterCalibrationGame(MoveTemp(OnComplete));
 		CurrentInputMode = MiniGameHost->GetInputMode();
 	}
 }

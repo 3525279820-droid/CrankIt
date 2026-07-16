@@ -80,20 +80,26 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 
 			if (Battery->IsFullyCharged())
 			{
+				APlayerCamera* Cam = nullptr;
+				UCrankItActorRegistry* Registry = nullptr;
+
 				// 满电放电前：West 朝向且满足教程条件时播放 EMP 字幕轨（经 Registry + ShouldShowEMPTutorial）
 				if (UWorld* World = GetWorld())
 				{
+					Registry = World->GetSubsystem<UCrankItActorRegistry>();
+
 					AMineConsole* Console = nullptr;
 					int32 PlayerDirectionIndex = INDEX_NONE;
 
-					if (UCrankItActorRegistry* Registry = World->GetSubsystem<UCrankItActorRegistry>())
+					if (Registry)
 					{
 						Console = Registry->GetMineConsole();
 					}
 
 					if (APlayerController* PC = World->GetFirstPlayerController())
 					{
-						if (APlayerCamera* Cam = Cast<APlayerCamera>(PC->GetPawn()))
+						Cam = Cast<APlayerCamera>(PC->GetPawn());
+						if (Cam)
 						{
 							PlayerDirectionIndex = Cam->GetCurrentDirectionIndex();
 						}
@@ -104,7 +110,7 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 						Console->TryShowLightTutorialSubtitle();
 					}
 				}
-			
+
 				if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
 				{
 					Audio->Play2D(LightTriggerSound);
@@ -112,9 +118,34 @@ void ULightTrigger::OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey 
 
 				if (EMPLight) EMPLight->LightIntensity = 25000.f;
 				Battery->ResetChargeProgress();
-				if(CurrentDirection == Monster->CurrentDirection)
+
+				// 驱怪：优先 Registry，未绑定则打日志跳过
+				AMonster* TargetMonster = Monster;
+				if (!IsValid(TargetMonster) && Registry)
 				{
-					Monster->Repel();
+					TargetMonster = Registry->GetMonster();
+				}
+				if (!IsValid(TargetMonster))
+				{
+					UE_LOG(LogTemp, Warning, TEXT("LightTrigger: Monster not found."));
+				}
+				else
+				{
+					// 玩家当前朝向名与怪物所在方位比较；读不到玩家时回退到本开关配置的 CurrentDirection
+					FString PlayerDirectionName = CurrentDirection;
+					if (Cam)
+					{
+						const int32 Idx = Cam->GetCurrentDirectionIndex();
+						if (Cam->Directions.IsValidIndex(Idx))
+						{
+							PlayerDirectionName = Cam->Directions[Idx];
+						}
+					}
+
+					if (PlayerDirectionName == TargetMonster->CurrentDirection)
+					{
+						TargetMonster->Repel();
+					}
 				}
 				return; // 找到一个满足条件的电池后就返回
 			}

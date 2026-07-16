@@ -35,8 +35,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Terminal|MiniGame")
 	void ExitClassificationGame();
 
-	UFUNCTION(BlueprintCallable, Category = "Terminal|MiniGame")
-	void EnterCalibrationGame();
+	void EnterCalibrationGame(TFunction<void(bool bWon)> OnComplete = TFunction<void(bool)>());
 
 	UFUNCTION(BlueprintCallable, Category = "Terminal|MiniGame")
 	void ExitCalibrationGame();
@@ -46,6 +45,8 @@ public:
 
 	UFUNCTION()
 	void HandleCalibrationGameFinished(bool bWon);
+
+	void ExitCalibrationGameSilently();
 
 private:
 	UPROPERTY()
@@ -61,4 +62,6 @@ private:
 	TObjectPtr<UCalibrationWidget> CalibrationWidget;
 
 	ETerminalInputMode CurrentInputMode = ETerminalInputMode::Terminal;
+
+	TFunction<void(bool bWon)> CalibrationCompleteCallback;
 };

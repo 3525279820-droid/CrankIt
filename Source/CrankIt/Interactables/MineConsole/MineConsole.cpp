@@ -9,6 +9,7 @@
 #include "CrankItNarrativeIds.h"
 #include "CrankItNarrativeSubsystem.h"
 #include "PlayerCamera.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/PlayerController.h"
 
 // Sets default values
@@ -23,19 +24,18 @@ AMineConsole::AMineConsole()
 	ChargeHandle = CreateDefaultSubobject<UStaticMeshComponent>("ChargeHandle");
 	ChargeHandle->SetupAttachment(RootComp);
 
-	for(int32 i = 0; i < 10; i++)
+	ChargeCellsRoot = CreateDefaultSubobject<USceneComponent>(TEXT("ChargeCellsRoot"));
+	ChargeCellsRoot->SetupAttachment(RootComp);
+
+	for (int32 i = 0; i < NumChargeCells; ++i)
 	{
-		FName LightName = *FString::Printf(TEXT("ChargeLight_%d"), i);
-		UPointLightComponent* PointLight = CreateDefaultSubobject<UPointLightComponent>(LightName);
-		PointLight->SetupAttachment(RootComp);
-
-		PointLight->SetRelativeLocation(FVector(i * 30.f, 0.f, 0.f));
-		
-		PointLight->SetVisibility(false);
-		PointLight->SetIntensity(5000.f);
-		PointLight->SetLightFColor(FColor(255, 0, 0, 255));
-
-		ChargeLights.Add(PointLight);
+		const FName CellName = *FString::Printf(TEXT("ChargeCell_%d"), i);
+		UStaticMeshComponent* Cell = CreateDefaultSubobject<UStaticMeshComponent>(CellName);
+		Cell->SetupAttachment(ChargeCellsRoot);
+		Cell->SetVisibility(true);
+		Cell->SetHiddenInGame(true);
+		Cell->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		ChargeCells.Add(Cell);
 	}
 
 	for(int32 i = 0; i < 3; i++)
@@ -49,7 +49,16 @@ AMineConsole::AMineConsole()
 	}
 }
 
-// BeginPlay：启动充电灯序列，向 ActorRegistry 注册自身并取电池对齐槽位
+void AMineConsole::SetChargeCellLit(UStaticMeshComponent* Cell, bool bLit)
+{
+	if (!Cell)
+	{
+		return;
+	}
+	Cell->SetHiddenInGame(!bLit);
+}
+
+// BeginPlay：启动充电格衰减序列，向 ActorRegistry 注册自身并取电池对齐槽位
 void AMineConsole::BeginPlay()
 {
 	Super::BeginPlay();
@@ -130,35 +139,44 @@ void AMineConsole::StartLightingOffSequence()
 
 void AMineConsole::LightNext()
 {
+	if (ChargeCells.Num() == 0)
+	{
+		return;
+	}
+
 	UE_LOG(LogTemp, Display, TEXT("%d"), CurrentLightIndex)
 
-	if(CurrentLightIndex < ChargeLights.Num() - 1)
+	if (CurrentLightIndex < ChargeCells.Num())
 	{
-		ChargeLights[CurrentLightIndex]->SetVisibility(true);
+		SetChargeCellLit(ChargeCells[CurrentLightIndex], true);
 		CurrentLightIndex++;
-	}else
+	}
+
+	// 全部点亮后充一格电并重置
+	if (CurrentLightIndex >= ChargeCells.Num())
 	{
-		AllLightsOff();
+		AllChargeCellsOff();
 		CheckNeedCharge();
 	}
 }
 
 void AMineConsole::LightOff()
 {
-	if(CurrentLightIndex >= 0 and !ShouldRotate)
+	if (CurrentLightIndex > 0 && !ShouldRotate)
 	{
-
-		ChargeLights[CurrentLightIndex]->SetVisibility(false);
-		if(CurrentLightIndex) CurrentLightIndex--;
+		CurrentLightIndex--;
+		if (ChargeCells.IsValidIndex(CurrentLightIndex))
+		{
+			SetChargeCellLit(ChargeCells[CurrentLightIndex], false);
+		}
 	}
-
 }
 
-void AMineConsole::AllLightsOff()
+void AMineConsole::AllChargeCellsOff()
 {
-	for(int32 i = 0; i < 10; i++)
+	for (UStaticMeshComponent* Cell : ChargeCells)
 	{
-		ChargeLights[i]->SetVisibility(false);
+		SetChargeCellLit(Cell, false);
 	}
 	CurrentLightIndex = 0;
 }
@@ -300,6 +318,3 @@ void AMineConsole::CheckNeedCharge()
 		}
 	}
 }
-
-
-

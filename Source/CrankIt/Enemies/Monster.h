@@ -79,11 +79,21 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Monster")
 	bool bSpawnable = false;
 
+	// 北向入口门打开前为 false；由 GameplaySubsystem::NotifyNorthEntryDoorOpened 置 true
+	UPROPERTY(BlueprintReadOnly, Category = "Monster")
+	bool bAllowNorthSpawn = false;
+
 public:
 	void EnableSpawning() { bSpawnable = true; }
 
 	UFUNCTION(BlueprintPure, Category = "Monster")
 	bool IsSpawningEnabled() const { return bSpawnable; }
+
+	// 北向入口解锁后允许在 North 生成；外部请经 UCrankItGameplaySubsystem::NotifyNorthEntryDoorOpened
+	void SetNorthSpawnAllowed(bool bAllowed) { bAllowNorthSpawn = bAllowed; }
+
+	UFUNCTION(BlueprintPure, Category = "Monster")
+	bool IsNorthSpawnAllowed() const { return bAllowNorthSpawn; }
 
 	// 当前生成方位（East / West / North）
 	UPROPERTY(VisibleAnywhere, Category="Monster")

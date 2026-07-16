@@ -137,18 +137,36 @@ void UTerminalActionDispatcher::RegisterActions()
 		{
 			return;
 		}
-		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Unlocking);
-		Display->StartDisplayingLinesProcedure(15.f);
-		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Unlocked);
-		Display->StartDisplayingLines();
-		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_LowAux);
-		Display->StartDisplayingLinesProcedure(5.f);
-		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Restricted);
-		Display->StartDisplayingLines();
-		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Countdown30);
-		Display->StartDisplayingLinesProcedure(30.f);
-		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_UnlockedReady);
-		Display->StartDisplayingLinesProcedure(30.f);
+
+		Host->EnterCalibrationGame([this](bool bWon)
+		{
+			if (!Display || !Host)
+			{
+				return;
+			}
+			if (!bWon)
+			{
+				Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::Calibration_Ended);
+				Display->StartDisplayingLines();
+				Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::Calibration_BackToTerminal);
+				Display->StartDisplayingLines();
+				return;
+			}
+
+			// 与 OpenDoor Action 相同：经 ActorRegistry 开门（音效/北向解锁在门内完成）
+			if (UWorld* World = GetWorld())
+			{
+				if (UCrankItActorRegistry* Reg = World->GetSubsystem<UCrankItActorRegistry>())
+				{
+					if (ADoubleAutoDoor* Door = Reg->GetDoubleAutoDoor())
+					{
+						Door->DoorOpened();
+					}
+				}
+			}
+
+			PlayCalibrateNorthEntryDoorSequence();
+		});
 	});
 
 	ActionHandlers.Add(CrankItTerminalAction::GodIsDead, [this](const FString&, const TMap<FString, TArray<FString>>*)
@@ -200,6 +218,33 @@ void UTerminalActionDispatcher::RegisterActions()
 		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::Ascend_GameOver);
 		Display->StartDisplayingLines();
 	});
+}
+
+void UTerminalActionDispatcher::PlayCalibrateNorthEntryDoorSequence() const
+{
+	if (!Display || !Host)
+	{
+		return;
+	}
+	
+	// 测试代码，没有真正的等待效果
+
+	Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Unlocking);
+	Display->StartDisplayingLinesProcedure(15.f);
+	Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Unlocked);
+	Display->StartDisplayingLines();
+	Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_LowAux);
+	Display->StartDisplayingLinesProcedure(5.f);
+	Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Restricted);
+	Display->StartDisplayingLines();
+	Display->ClearTerminal();
+	Display->ClearPendingLines();
+	Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_Countdown30);
+	Display->StartDisplayingLinesProcedure(30.f);
+	Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::CalibrateNorthEntry_UnlockedReady);
+	Display->StartDisplayingLinesProcedure(30.f);
+	Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::LiftOperational);
+	Display->StartDisplayingLines();
 }
 
 // 从 Router 持有的 CommandTextMap 追加同步文案（REBOOT / SCAN AND REPAIR 等）

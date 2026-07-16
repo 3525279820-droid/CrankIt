@@ -19,7 +19,7 @@ const FName UCrankItGameplaySubsystem::GameOverMonsterLocationTag(TEXT("GameOver
 namespace
 {
 	// 按 Actor Tag 查找关卡中的 LevelSequenceActor（与 IntroFlow 同约定）
-	ALevelSequenceActor* FindLevelSequenceActorByTag(UWorld* World, FName ActorTag)
+	ALevelSequenceActor* FindGameplayLevelSequenceActorByTag(UWorld* World, FName ActorTag)
 	{
 		if (!World || ActorTag.IsNone())
 		{
@@ -38,7 +38,7 @@ namespace
 	}
 
 	// 按 Tag 取首个匹配 Actor（用于 GameOverMonsterLocation 占位）
-	AActor* FindFirstActorWithTag(UWorld* World, FName ActorTag)
+	AActor* FindFirstGameplayActorWithTag(UWorld* World, FName ActorTag)
 	{
 		if (!World || ActorTag.IsNone())
 		{
@@ -83,6 +83,24 @@ void UCrankItGameplaySubsystem::SetTutorialSkipped(bool bSkipped)
 		if (AMineConsole* Console = Registry->GetMineConsole())
 		{
 			Console->SetTutorialSkipped(bSkipped);
+		}
+	}
+}
+
+// 经 ActorRegistry 允许怪物在 North 生成（北向入口门开到位后）
+void UCrankItGameplaySubsystem::NotifyNorthEntryDoorOpened()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	if (UCrankItActorRegistry* Registry = World->GetSubsystem<UCrankItActorRegistry>())
+	{
+		if (AMonster* TargetMonster = Registry->GetMonster())
+		{
+			TargetMonster->SetNorthSpawnAllowed(true);
 		}
 	}
 }
@@ -132,7 +150,7 @@ bool UCrankItGameplaySubsystem::PlayJumpScareSequence()
 		return false;
 	}
 
-	ALevelSequenceActor* const LevelSequenceActor = FindLevelSequenceActorByTag(World, JumpScareSequenceTag);
+	ALevelSequenceActor* const LevelSequenceActor = FindGameplayLevelSequenceActorByTag(World, JumpScareSequenceTag);
 	if (!LevelSequenceActor)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("PlayJumpScareSequence: LevelSequenceActor with tag '%s' not found."),
@@ -194,7 +212,7 @@ void UCrankItGameplaySubsystem::TriggerGameOverJumpScare(AMonster* Monster)
 		return;
 	}
 
-	AActor* const LocationActor = FindFirstActorWithTag(World, GameOverMonsterLocationTag);
+	AActor* const LocationActor = FindFirstGameplayActorWithTag(World, GameOverMonsterLocationTag);
 	if (!LocationActor)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("TriggerGameOverJumpScare: Actor with tag '%s' not found."),

@@ -25,7 +25,7 @@ const FName UCrankItIntroFlowSubsystem::SkipTutorialSequenceTag(TEXT("SkipTutori
 namespace
 {
 	// 按 Actor Tag 查找关卡中的 LevelSequenceActor
-	ALevelSequenceActor* FindLevelSequenceActorByTag(UWorld* World, FName ActorTag)
+	ALevelSequenceActor* FindIntroLevelSequenceActorByTag(UWorld* World, FName ActorTag)
 	{
 		if (!World || ActorTag.IsNone())
 		{
@@ -291,7 +291,7 @@ void UCrankItIntroFlowSubsystem::PlaySequence(FName SequenceTag, bool bLoop)
 	}
 	PC->SetCinematicMode(true, true, false, true, true);
 
-	ALevelSequenceActor* const LevelSequenceActor = FindLevelSequenceActorByTag(World, SequenceTag);
+	ALevelSequenceActor* const LevelSequenceActor = FindIntroLevelSequenceActorByTag(World, SequenceTag);
 	if (!LevelSequenceActor)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("PlaySequence: LevelSequenceActor with tag '%s' not found."), *SequenceTag.ToString());
@@ -514,11 +514,27 @@ void UCrankItIntroFlowSubsystem::TutorialSkipped()
 	}
 	StopIntroCutsceneAndReturnToGame();
 
+
 	if (UWorld* World = GetWorld())
 	{
+		APlayerCamera::DisableAllInput(PC);
+	
 		if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
 		{
-			Narrative->PlaySubtitleTrack(CrankItNarrative::Subtitle::TutorialSkipped, []() {});
+			Narrative->PlaySubtitleTrack(CrankItNarrative::Subtitle::TutorialSkipped, [this]()
+			{
+				APlayerCamera::EnableAllInput(PC);
+				APlayerCamera* LiftCam = Cam;
+				if (!LiftCam && PC)
+				{
+					LiftCam = Cast<APlayerCamera>(PC->GetPawn());
+				}
+				if (LiftCam)
+				{
+					LiftCam->StartSoundDetectorHoldLift();
+				}
+				PrepareLevel();
+			});
 		}
 	}
 }
@@ -538,6 +554,15 @@ void UCrankItIntroFlowSubsystem::TutorialNotSkipped()
 				[this]()
 				{
 					APlayerCamera::EnableAllInput(PC);
+					APlayerCamera* LiftCam = Cam;
+					if (!LiftCam && PC)
+					{
+						LiftCam = Cast<APlayerCamera>(PC->GetPawn());
+					}
+					if (LiftCam)
+					{
+						LiftCam->StartSoundDetectorHoldLift();
+					}
 				});
 		}
 	}

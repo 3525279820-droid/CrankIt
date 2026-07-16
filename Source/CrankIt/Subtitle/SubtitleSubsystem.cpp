@@ -136,7 +136,6 @@ float USubtitleSubsystem::GetSyncedPlaybackSeconds(UAudioComponent* AudioComp) c
 	const float P = CachedPlaybackPercent.load(std::memory_order_relaxed);
 	const float FromPercent = FMath::Clamp(P, 0.f, 1.f) * Duration;
 
-	// 2D/UI 语音上 OnAudioPlaybackPercentNative 常不触发，进度会卡在 0，导致永远匹配第一句
 	if (P > 0.001f)
 	{
 		return FromPercent;

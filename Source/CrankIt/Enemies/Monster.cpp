@@ -34,7 +34,12 @@ void AMonster::SpawnAtRandomDirection(APlayerCamera* Player)
 	if (!Player) return;
 
 	FVector PlayerLocation = Player->GetActorLocation();
-	TArray<FString> Directions = { "East", "West", "North" };
+	// 北向入口门打开前仅东/西；打开后才允许 North
+	TArray<FString> Directions = { TEXT("East"), TEXT("West") };
+	if (bAllowNorthSpawn)
+	{
+		Directions.Add(TEXT("North"));
+	}
 	CurrentDirection = Directions[FMath::RandRange(0, Directions.Num() - 1)];
 	bIsActive = true;
 	FVector SpawnLocation = PlayerLocation;

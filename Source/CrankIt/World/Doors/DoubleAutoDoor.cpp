@@ -2,6 +2,8 @@
 
 #include "DoubleAutoDoor.h"
 
+#include "CrankItGameplaySubsystem.h"
+
 ADoubleAutoDoor::ADoubleAutoDoor()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -31,6 +33,12 @@ void ADoubleAutoDoor::BeginPlay()
 	}
 }
 
+void ADoubleAutoDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	StopOpenSound();
+	Super::EndPlay(EndPlayReason);
+}
+
 void ADoubleAutoDoor::DoorOpened()
 {
 	if (bHasOpened || bIsOpening)
@@ -40,6 +48,7 @@ void ADoubleAutoDoor::DoorOpened()
 
 	bIsOpening = true;
 	OpenElapsed = 0.f;
+	StartOpenSound();
 	SetActorTickEnabled(true);
 }
 
@@ -59,9 +68,7 @@ void ADoubleAutoDoor::Tick(float DeltaTime)
 
 	if (Alpha >= 1.f)
 	{
-		bIsOpening = false;
-		bHasOpened = true;
-		SetActorTickEnabled(false);
+		FinishOpening();
 	}
 }
 
@@ -74,5 +81,53 @@ void ADoubleAutoDoor::UpdateDoorPositions(float Alpha)
 	if (RightDoorMesh)
 	{
 		RightDoorMesh->SetRelativeLocation(FMath::Lerp(RightDoorStartRelative, RightDoorStartRelative + RightDoorOpenOffset, Alpha));
+	}
+}
+
+void ADoubleAutoDoor::StartOpenSound()
+{
+	if (!OpenSound)
+	{
+		return;
+	}
+
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		StopOpenSound();
+		OpenSoundHandle = Audio->PlayAttached3D(OpenSound, RootComp, NAME_None, 1.f, true);
+	}
+}
+
+void ADoubleAutoDoor::StopOpenSound()
+{
+	if (!OpenSoundHandle.IsValid())
+	{
+		return;
+	}
+
+	if (UCrankItAudioService* Audio = UCrankItAudioService::Get(this))
+	{
+		Audio->Stop(OpenSoundHandle);
+	}
+	else
+	{
+		OpenSoundHandle = FCrankItSoundHandle();
+	}
+}
+
+void ADoubleAutoDoor::FinishOpening()
+{
+	bIsOpening = false;
+	bHasOpened = true;
+	SetActorTickEnabled(false);
+	StopOpenSound();
+
+	// 经 GameplaySubsystem 解锁北向生成，避免门直接依赖 Monster
+	if (UWorld* World = GetWorld())
+	{
+		if (UCrankItGameplaySubsystem* Gameplay = World->GetSubsystem<UCrankItGameplaySubsystem>())
+		{
+			Gameplay->NotifyNorthEntryDoorOpened();
+		}
 	}
 }

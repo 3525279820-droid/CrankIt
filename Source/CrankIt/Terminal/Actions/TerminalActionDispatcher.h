@@ -24,6 +24,8 @@ private:
 
 	void AppendCommandTextFromMap(const FString& CommandKey, const TMap<FString, TArray<FString>>* CommandTextMap) const;
 
+	void PlayCalibrateNorthEntryDoorSequence() const;
+
 	UPROPERTY()
 	TObjectPtr<UTerminalWidget> Host;
 

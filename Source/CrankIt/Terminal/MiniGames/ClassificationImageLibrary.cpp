@@ -115,7 +115,6 @@ bool FClassificationImageLibrary::LoadImagesFromContentPath(const FString& Conte
 		UTexture2D* Texture = Cast<UTexture2D>(AssetData.GetAsset());
 		if (!Texture)
 		{
-			// UE 5.6：FSoftObjectPath 无 LoadSynchronous，用 ObjectPath 同步加载
 			Texture = LoadObject<UTexture2D>(nullptr, *AssetData.GetObjectPathString());
 		}
 		if (!Texture)

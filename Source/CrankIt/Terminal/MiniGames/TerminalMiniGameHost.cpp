@@ -131,7 +131,7 @@ void UTerminalMiniGameHost::ExitClassificationGame()
 }
 
 // 显示校准 Widget 并 StartGame；抬高 ZOrder 以免被终端背景挡住
-void UTerminalMiniGameHost::EnterCalibrationGame()
+void UTerminalMiniGameHost::EnterCalibrationGame(TFunction<void(bool)> OnComplete)
 {
 	if (!Host || !Display)
 	{
@@ -143,9 +143,11 @@ void UTerminalMiniGameHost::EnterCalibrationGame()
 		Host->AppendTerminalOutputBlock(CrankItNarrative::Terminal::Calibration_WidgetMissing);
 		Display->StartDisplayingLines();
 		CurrentInputMode = ETerminalInputMode::Terminal;
+		CalibrationCompleteCallback = nullptr;
 		return;
 	}
 
+	CalibrationCompleteCallback = MoveTemp(OnComplete);
 	CurrentInputMode = ETerminalInputMode::CalibrationGame;
 	Display->ClearInputLine();
 	Display->UpdateDisplay();
@@ -167,11 +169,20 @@ void UTerminalMiniGameHost::EnterCalibrationGame()
 	CalibrationWidget->StartGame();
 }
 
-// 校准结束：写入 Narrative 输出块并退回终端模式
+// 校准结束：自定义回调或默认 Narrative 输出块
 void UTerminalMiniGameHost::HandleCalibrationGameFinished(bool bWon)
 {
 	if (!Host)
 	{
+		return;
+	}
+
+	if (CalibrationCompleteCallback)
+	{
+		TFunction<void(bool)> Callback = MoveTemp(CalibrationCompleteCallback);
+		CalibrationCompleteCallback = nullptr;
+		ExitCalibrationGameSilently();
+		Callback(bWon);
 		return;
 	}
 
@@ -186,6 +197,24 @@ void UTerminalMiniGameHost::HandleCalibrationGameFinished(bool bWon)
 	ExitCalibrationGame();
 }
 
+// 隐藏校准 Widget，恢复终端输入模式（不追加返回终端提示）
+void UTerminalMiniGameHost::ExitCalibrationGameSilently()
+{
+	if (!Host || !Display)
+	{
+		return;
+	}
+
+	CurrentInputMode = ETerminalInputMode::Terminal;
+	Display->ClearInputLine();
+	Display->UpdateDisplay();
+
+	if (CalibrationWidget)
+	{
+		CalibrationWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
 // 隐藏校准 Widget，恢复终端输入模式
 void UTerminalMiniGameHost::ExitCalibrationGame()
 {
@@ -194,6 +223,7 @@ void UTerminalMiniGameHost::ExitCalibrationGame()
 		return;
 	}
 
+	CalibrationCompleteCallback = nullptr;
 	CurrentInputMode = ETerminalInputMode::Terminal;
 	Display->ClearInputLine();
 	Display->UpdateDisplay();

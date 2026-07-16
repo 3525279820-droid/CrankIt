@@ -42,9 +42,11 @@ public:
 	void OnButtonClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed);
 	AEMPLight* EMPLight;
 
+	/** 可选手动绑定；为空时 OnButtonClicked 经 ActorRegistry 查找 */
 	UPROPERTY(EditAnywhere, Category="Monster")
-	AMonster* Monster;
-	
+	AMonster* Monster = nullptr;
+
+	/** 本开关覆盖方位（East/West/North…）；无法读取玩家朝向时作为与怪物方位比较的回退 */
 	UPROPERTY(EditAnywhere, Category="Monster")
 	FString CurrentDirection;
 

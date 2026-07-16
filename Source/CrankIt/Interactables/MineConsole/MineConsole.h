@@ -4,13 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Components/PointLightComponent.h"
 #include "Battery.h"
 #include "BatterySlotTrigger.h"
 #include "CrankItAudioService.h"
 #include "MineConsole.generated.h"
 
-class UPointLightComponent;
+class UStaticMeshComponent;
 class USoundBase;
 UCLASS()
 class CRANKIT_API AMineConsole : public AActor
@@ -29,11 +28,13 @@ public:
 
 	void LightOff();
 
-	void AllLightsOff();
+	void AllChargeCellsOff();
 
 	void ChargeBattery();
 
 	void CheckNeedCharge();
+
+	static constexpr int32 NumChargeCells = 19;
 
 	// 充电教程字幕已全部展示过（充满 3 格后），不再重复播放
 	UPROPERTY(BlueprintReadWrite, Category = "Tutorial")
@@ -52,14 +53,16 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* ChargeHandle;
 
-	UPROPERTY(VisibleAnywhere)
-	TArray<UPointLightComponent*> ChargeLights;
+	/** 充电格挂点；各 ChargeCell 挂在此下，可在编辑器里单独设 Mesh / Transform */
+	UPROPERTY(VisibleAnywhere, Category = "MineConsole|Charge")
+	USceneComponent* ChargeCellsRoot;
+
+	UPROPERTY(VisibleAnywhere, Category = "MineConsole|Charge")
+	TArray<TObjectPtr<UStaticMeshComponent>> ChargeCells;
 
 	UPROPERTY(VisibleAnywhere)
 	TArray<UBatterySlotTrigger*> BatterySlots;
 
-
-	
 	FTimerHandle ChargeLightTimer;
 
 	int32 CurrentLightIndex = 0;
@@ -104,6 +107,9 @@ protected:
 	bool bSkipedTutorial = false;
 
 private:
+	/** 游戏中点亮/熄灭；编辑器里始终可见以便调位 */
+	void SetChargeCellLit(UStaticMeshComponent* Cell, bool bLit);
+
 	/** 玩家悬停 ChargeHandle 时为 true；外部请用 SetShouldRotate */
 	bool ShouldRotate = false;
 

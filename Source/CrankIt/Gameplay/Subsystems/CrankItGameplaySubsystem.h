@@ -34,6 +34,9 @@ public:
 	// Skip 教程选 Yes 等路径统一经此写入 MineConsole（内部经 ActorRegistry 查找）
 	void SetTutorialSkipped(bool bSkipped);
 
+	// 北向入口门开到位后调用：经 ActorRegistry 允许 Monster 在 North 生成
+	void NotifyNorthEntryDoorOpened();
+
 	// 失败跳杀：怪物移到 Tag=GameOverMonsterLocation，以 PlayerCamera 播 Tag=JumpScare 的 Sequence；Monster 为空时经 ActorRegistry 查找
 	void TriggerGameOverJumpScare(AMonster* Monster = nullptr);
 

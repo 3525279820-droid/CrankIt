@@ -164,7 +164,8 @@ void UCalibrationWidget::BuildRuntimeTextUI()
 	}
 
 	UTextBlock* TitleText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("CalibrationTitle"));
-	TitleText->SetText(FText::FromString(TEXT("CALIBRATION")));
+	TitleText->SetText(FText::FromString(TEXT("Calibration Tool\nline up fuel rod in a straight line"
+										   "press enter to place")));
 	TitleText->SetColorAndOpacity(MainColor);
 	ApplyConfiguredFont(TitleText);
 	RuntimeRoot->AddChildToVerticalBox(TitleText);
@@ -292,22 +293,24 @@ void UCalibrationWidget::RefreshRuntimeTextUI()
 		}
 	}
 
-	if (StatusText)
-	{
-		if (!bGameActive && LockedColsPerRow.Num() == GridSize && LockedColsPerRow.Last() != INDEX_NONE)
-		{
-			StatusText->SetText(FText::FromString(TEXT("Calibration Complete")));
-		}
-		else if (LockedColumn == INDEX_NONE)
-		{
-			StatusText->SetText(FText::FromString(TEXT("Press Enter to lock row 1")));
-		}
-		else
-		{
-			const FString ColName = FString::Chr(TEXT('A') + LockedColumn);
-			StatusText->SetText(FText::FromString(FString::Printf(TEXT("Locked column: %s  |  Next row: %d"), *ColName, CurrentRow + 1)));
-		}
-	}
+	// 状态测试代码，取消注释显示状态
+	
+	// if (StatusText)
+	// {
+	// 	if (!bGameActive && LockedColsPerRow.Num() == GridSize && LockedColsPerRow.Last() != INDEX_NONE)
+	// 	{
+	// 		StatusText->SetText(FText::FromString(TEXT("Calibration Complete")));
+	// 	}
+	// 	else if (LockedColumn == INDEX_NONE)
+	// 	{
+	// 		StatusText->SetText(FText::FromString(TEXT("Press Enter to lock row 1")));
+	// 	}
+	// 	else
+	// 	{
+	// 		const FString ColName = FString::Chr(TEXT('A') + LockedColumn);
+	// 		StatusText->SetText(FText::FromString(FString::Printf(TEXT("Locked column: %s  |  Next row: %d"), *ColName, CurrentRow + 1)));
+	// 	}
+	// }
 }
 
 void UCalibrationWidget::MoveCurrentBlockRight()
