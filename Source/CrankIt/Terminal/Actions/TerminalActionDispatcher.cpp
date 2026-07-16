@@ -56,10 +56,6 @@ void UTerminalActionDispatcher::RegisterActions()
 			// REBOOT 动画结束后经 ActorRegistry 调用 EnableSpawning 与顶灯闪烁
 			if (UCrankItActorRegistry* Reg = GetWorld()->GetSubsystem<UCrankItActorRegistry>())
 			{
-				if (AMonster* Monster = Reg->GetMonster())
-				{
-					Monster->EnableSpawning();
-				}
 				if (AFlashTopLight* FlashLight = Reg->GetFlashTopLight())
 				{
 					FlashLight->SetIntensity(1000.f);

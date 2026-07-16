@@ -27,7 +27,7 @@ public:
 	// BeginPlay 时由 ACrankItGameMode 调用：缓存 GameMode 配置、订阅方向变化并启动开场定时器
 	void StartIntroFlow(ACrankItGameMode* OwnerGameMode);
 
-	// 解锁怪物生成与电脑屏幕点击（通常由 HandlePostEMPTutorialFinished 调用）
+	// 解锁怪物生成与电脑屏幕点击；启动时播 ComputerScreen_FirstPrompt（通常由 HandlePostEMPTutorialFinished 等调用）
 	void PrepareLevel();
 
 	void ShowKeyPrompt();

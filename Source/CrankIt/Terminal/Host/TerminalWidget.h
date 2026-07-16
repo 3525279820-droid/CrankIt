@@ -24,6 +24,7 @@ class CRANKIT_API UTerminalWidget : public UUserWidget
 	friend class UTerminalActionDispatcher;
 	friend class UTerminalMiniGameHost;
 	friend class UTerminalBatteryHoldController;
+	friend class UTerminalDisplayController;
 
 public:
 	virtual void NativeConstruct() override;
@@ -132,6 +133,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Terminal|Audio")
 	TObjectPtr<USoundBase> UnknownCommandSound = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Terminal|Audio")
+	TObjectPtr<USoundBase> LineDisplaySound = nullptr;
 
 	void PlayTerminalSound2D(USoundBase* Sound);
 

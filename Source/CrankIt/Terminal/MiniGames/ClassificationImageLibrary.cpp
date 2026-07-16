@@ -6,7 +6,7 @@
 
 namespace
 {
-	// 去掉首尾空白与末尾斜杠，便于与 PackageName 前缀匹配
+	// 规范为 Asset Registry 的 PackagePath（必须以 /Game 开头，无末尾斜杠）
 	FString NormalizeContentRootPath(FString Path)
 	{
 		Path.TrimStartAndEndInline();
@@ -14,7 +14,24 @@ namespace
 		{
 			Path.LeftChopInline(1);
 		}
-		return Path;
+		if (Path.IsEmpty())
+		{
+			return Path;
+		}
+		// "ClassificationGame" / "Game/ClassificationGame" → "/Game/ClassificationGame"
+		if (Path.StartsWith(TEXT("/Game")))
+		{
+			return Path;
+		}
+		if (Path.StartsWith(TEXT("Game/")))
+		{
+			return TEXT("/") + Path;
+		}
+		if (Path.StartsWith(TEXT("/")))
+		{
+			return FString::Printf(TEXT("/Game%s"), *Path);
+		}
+		return FString::Printf(TEXT("/Game/%s"), *Path);
 	}
 }
 

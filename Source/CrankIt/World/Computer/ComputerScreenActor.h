@@ -65,6 +65,6 @@ public:
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Interaction")
-	bool bIsClickable = true;
+	bool bIsClickable = false;
 
 };

@@ -90,6 +90,11 @@ void UTerminalDisplayController::DisplayNextLine()
 
 	CurrentText += Line + TEXT("\n");
 	UpdateDisplay();
+
+	if (OwnerWidget)
+	{
+		OwnerWidget->PlayTerminalSound2D(OwnerWidget->LineDisplaySound);
+	}
 }
 
 // 将 CurrentText + 当前输入行写入 TextBlock

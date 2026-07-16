@@ -19,6 +19,7 @@
 #include "CrankItGameplaySubsystem.h"
 #include "CrankItNarrativeSubsystem.h"
 #include "CrankItNarrativeIds.h"
+#include "Engine/StaticMeshActor.h"
 
 const FName UCrankItIntroFlowSubsystem::SkipTutorialSequenceTag(TEXT("SkipTutorialSequencer"));
 
@@ -79,6 +80,19 @@ void UCrankItIntroFlowSubsystem::StartIntroFlow(ACrankItGameMode* InOwnerGameMod
 	CachePlayerReferences();
 	UnbindPlayerDirectionChanged();
 	BindGameplayEvents();
+
+	// PrepareLevel 前禁止点击电脑进入终端
+	if (UWorld* World = GetWorld())
+	{
+		if (UCrankItActorRegistry* Reg = World->GetSubsystem<UCrankItActorRegistry>())
+		{
+			ComputerScreen = Reg->GetComputerScreen();
+			if (ComputerScreen)
+			{
+				ComputerScreen->SetInteractable(false);
+			}
+		}
+	}
 
 	if (Cam)
 	{
@@ -400,7 +414,7 @@ void UCrankItIntroFlowSubsystem::ShowTutorial()
 	PC->bShowMouseCursor = true;
 }
 
-// 由 GameplaySubsystem::OnPostEMPTutorialFinished 等触发；经 ActorRegistry 解锁关卡元素
+// 由 GameplaySubsystem::OnPostEMPTutorialFinished 等触发：播首段终端提示并解锁关卡元素
 void UCrankItIntroFlowSubsystem::PrepareLevel()
 {
 	UWorld* World = GetWorld();
@@ -414,6 +428,20 @@ void UCrankItIntroFlowSubsystem::PrepareLevel()
 		ComputerScreen = Reg->GetComputerScreen();
 		Monster = Reg->GetMonster();
 	}
+
+	// 关卡准备启动：先播 DA 终端输出块，再解锁屏幕点击
+	SetFirstComputerScreenText();
+
+	APlayerCamera* LiftCam = Cam;
+	if (!LiftCam && PC)
+	{
+		LiftCam = Cast<APlayerCamera>(PC->GetPawn());
+	}
+	if (LiftCam)
+	{
+		LiftCam->StartSoundDetectorHoldLift();
+	}
+
 	if (ComputerScreen)
 	{
 		ComputerScreen->SetInteractable(true);
@@ -422,6 +450,16 @@ void UCrankItIntroFlowSubsystem::PrepareLevel()
 	{
 		Monster->EnableSpawning();
 	}
+
+	// ========== 测试代码，仅在未有骨架网格体角色时测试用 ==========
+	for (TActorIterator<AStaticMeshActor> It(World); It; ++It)
+	{
+		if (It->ActorHasTag(TEXT("NPC_Gordon")))
+		{
+			It->SetActorHiddenInGame(true);
+		}
+	}
+	// ========== 测试代码，仅在未有骨架网格体角色时测试用 ==========
 }
 
 // 停止当前 Intro 过场并恢复探索输入（Skip / 继续教程共用）
@@ -524,15 +562,6 @@ void UCrankItIntroFlowSubsystem::TutorialSkipped()
 			Narrative->PlaySubtitleTrack(CrankItNarrative::Subtitle::TutorialSkipped, [this]()
 			{
 				APlayerCamera::EnableAllInput(PC);
-				APlayerCamera* LiftCam = Cam;
-				if (!LiftCam && PC)
-				{
-					LiftCam = Cast<APlayerCamera>(PC->GetPawn());
-				}
-				if (LiftCam)
-				{
-					LiftCam->StartSoundDetectorHoldLift();
-				}
 				PrepareLevel();
 			});
 		}
@@ -554,15 +583,6 @@ void UCrankItIntroFlowSubsystem::TutorialNotSkipped()
 				[this]()
 				{
 					APlayerCamera::EnableAllInput(PC);
-					APlayerCamera* LiftCam = Cam;
-					if (!LiftCam && PC)
-					{
-						LiftCam = Cast<APlayerCamera>(PC->GetPawn());
-					}
-					if (LiftCam)
-					{
-						LiftCam->StartSoundDetectorHoldLift();
-					}
 				});
 		}
 	}

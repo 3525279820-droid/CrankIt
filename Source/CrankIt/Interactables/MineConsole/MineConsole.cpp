@@ -265,16 +265,12 @@ void AMineConsole::TryShowLightTutorialSubtitle()
 
 	if (UCrankItNarrativeSubsystem* Narrative = World->GetSubsystem<UCrankItNarrativeSubsystem>())
 	{
-		// 字幕播完后恢复输入、抬升探测器挂点，并经 GameplaySubsystem 通知 IntroFlow 解锁关卡
+		// 字幕播完后恢复输入，并经 GameplaySubsystem 通知 IntroFlow 解锁关卡
 		Narrative->PlaySubtitleTrack(CrankItNarrative::Subtitle::EMP_Tutorial, [World]()
 		{
 			if (APlayerController* CallbackPC = World->GetFirstPlayerController())
 			{
 				APlayerCamera::EnableAllInput(CallbackPC);
-				if (APlayerCamera* Cam = Cast<APlayerCamera>(CallbackPC->GetPawn()))
-				{
-					Cam->StartSoundDetectorHoldLift();
-				}
 				if (UCrankItGameplaySubsystem* Gameplay = World->GetSubsystem<UCrankItGameplaySubsystem>())
 				{
 					Gameplay->NotifyPostEMPTutorialFinished();

@@ -68,9 +68,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Classification|State")
 	EClassificationCategory OptionCursor = EClassificationCategory::Animal;
 
-	// Content 根路径，默认 /Game/Terminal/ClassificationGame；其下按 Animal / Fruit / Sport 分子目录
+	// Content 根路径（Asset Registry PackagePath，如 /Game/ClassificationGame），其下按 Animal / Fruit / Sport 分子目录
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Config")
-	FString ImageContentPath = TEXT("ClassificationGame");
+	FString ImageContentPath = TEXT("/Game/ClassificationGame");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Classification|Config")
 	int32 GridRows = 3;

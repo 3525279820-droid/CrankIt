@@ -165,7 +165,7 @@ void UCalibrationWidget::BuildRuntimeTextUI()
 
 	UTextBlock* TitleText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("CalibrationTitle"));
 	TitleText->SetText(FText::FromString(TEXT("Calibration Tool\nline up fuel rod in a straight line"
-										   "press enter to place")));
+										   "\npress enter to place")));
 	TitleText->SetColorAndOpacity(MainColor);
 	ApplyConfiguredFont(TitleText);
 	RuntimeRoot->AddChildToVerticalBox(TitleText);
