@@ -19,6 +19,7 @@
 #include "CrankItGameplaySubsystem.h"
 #include "CrankItNarrativeSubsystem.h"
 #include "CrankItNarrativeIds.h"
+#include "MineConsole.h"
 #include "Engine/StaticMeshActor.h"
 
 const FName UCrankItIntroFlowSubsystem::SkipTutorialSequenceTag(TEXT("SkipTutorialSequencer"));
@@ -427,6 +428,10 @@ void UCrankItIntroFlowSubsystem::PrepareLevel()
 	{
 		ComputerScreen = Reg->GetComputerScreen();
 		Monster = Reg->GetMonster();
+		if (AMineConsole* Console = Reg->GetMineConsole())
+		{
+			Console->NotifyLevelPrepared();
+		}
 	}
 
 	// 关卡准备启动：先播 DA 终端输出块，再解锁屏幕点击
@@ -583,6 +588,16 @@ void UCrankItIntroFlowSubsystem::TutorialNotSkipped()
 				[this]()
 				{
 					APlayerCamera::EnableAllInput(PC);
+					if (UWorld* World = GetWorld())
+					{
+						if (UCrankItActorRegistry* Reg = World->GetSubsystem<UCrankItActorRegistry>())
+						{
+							if (AMineConsole* Console = Reg->GetMineConsole())
+							{
+								Console->NotifyGordonIntroFinished();
+							}
+						}
+					}
 				});
 		}
 	}

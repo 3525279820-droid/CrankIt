@@ -189,6 +189,12 @@ void AMineConsole::TryShowChargeTutorialSubtitle(int32 NewChargeLevel)
 		return;
 	}
 
+	// 未跳过教程时：须等 Gordon 介绍播完，且 PrepareLevel 前
+	if (!bGordonIntroFinished || bLevelPrepared)
+	{
+		return;
+	}
+
 	if (NewChargeLevel <= ChargeTutorialLineShownUpTo)
 	{
 		return;
@@ -233,6 +239,16 @@ void AMineConsole::TryShowChargeTutorialSubtitle(int32 NewChargeLevel)
 void AMineConsole::SetTutorialSkipped(bool bSkipped)
 {
 	bSkipedTutorial = bSkipped;
+}
+
+void AMineConsole::NotifyGordonIntroFinished()
+{
+	bGordonIntroFinished = true;
+}
+
+void AMineConsole::NotifyLevelPrepared()
+{
+	bLevelPrepared = true;
 }
 
 // 满电 EMP 触发前的前置条件：West 朝向且教程未跳过、EMP 轨未播过

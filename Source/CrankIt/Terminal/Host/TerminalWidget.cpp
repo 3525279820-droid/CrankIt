@@ -281,6 +281,12 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
 		return FReply::Handled();
 	}
 
+	if (Key == EKeys::Tab && MiniGameHost && MiniGameHost->GetInputMode() != ETerminalInputMode::Terminal)
+	{
+		RequestExitComputerView();
+		return FReply::Handled();
+	}
+
 	if (MiniGameHost && MiniGameHost->RouteKey(Key))
 	{
 		CurrentInputMode = MiniGameHost->GetInputMode();
@@ -292,6 +298,42 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
 	if (!Display)
 	{
 		return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+	}
+
+	// BOORDLE：仅接受 0/1，并吞掉 A/D 等键，避免 Enhanced Input 仍驱动 PlayerCamera 转向
+	if (BoardleGame.IsActive())
+	{
+		if (Key == EKeys::Tab)
+		{
+			RequestExitComputerView();
+			return FReply::Handled();
+		}
+		if (Key == EKeys::BackSpace)
+		{
+			PlayTerminalSound2D(BackspaceSound);
+			Display->RemoveLastInputChar();
+			Display->UpdateDisplay();
+			return FReply::Handled();
+		}
+		if (Key == EKeys::A || Key == EKeys::D || Key == EKeys::Left || Key == EKeys::Right)
+		{
+			return FReply::Handled();
+		}
+
+		const uint32 CharCode = InKeyEvent.GetCharacter();
+		if (CharCode != 0)
+		{
+			const TCHAR Char = static_cast<TCHAR>(CharCode);
+			if ((Char == TEXT('0') || Char == TEXT('1'))
+				&& Display->GetCurrentInputLine().Len() < BoardleGame.GetBinaryLength())
+			{
+				PlayTerminalSound2D(KeyInputSound);
+				Display->AppendCharToInputLine(Char);
+				CommitBoardleGuess();
+				Display->UpdateDisplay();
+			}
+		}
+		return FReply::Handled();
 	}
 
 	if (Key == EKeys::Enter)
@@ -316,29 +358,16 @@ FReply UTerminalWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyE
 	if (CharCode != 0)
 	{
 		const TCHAR Char = static_cast<TCHAR>(CharCode);
-		if (BoardleGame.IsActive())
+		if (Char == TEXT(' '))
 		{
-			if ((Char == TEXT('0') || Char == TEXT('1')) && Display->GetCurrentInputLine().Len() < BoardleGame.GetBinaryLength())
-			{
-				PlayTerminalSound2D(KeyInputSound);
-				Display->AppendCharToInputLine(Char);
-				CommitBoardleGuess();
-				Display->UpdateDisplay();
-			}
+			PlayTerminalSound2D(SpaceSound);
 		}
 		else
 		{
-			if (Char == TEXT(' '))
-			{
-				PlayTerminalSound2D(SpaceSound);
-			}
-			else
-			{
-				PlayTerminalSound2D(KeyInputSound);
-			}
-			Display->AppendCharToInputLine(Char);
-			Display->UpdateDisplay();
+			PlayTerminalSound2D(KeyInputSound);
 		}
+		Display->AppendCharToInputLine(Char);
+		Display->UpdateDisplay();
 	}
 
 	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);

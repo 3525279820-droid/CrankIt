@@ -21,17 +21,11 @@ void UTerminalMiniGameHost::Initialize(
 	CurrentInputMode = ETerminalInputMode::Terminal;
 }
 
-// 分类 / 校准模式下消费按键；Tab 退出当前小游戏
+// 分类 / 校准小游戏下消费按键；Tab 由 TerminalWidget 统一处理为退出电脑视角
 bool UTerminalMiniGameHost::RouteKey(const FKey& Key)
 {
 	if (CurrentInputMode == ETerminalInputMode::ClassificationGame)
 	{
-		if (Key == EKeys::Tab)
-		{
-			ExitClassificationGame();
-			return true;
-		}
-
 		if (ClassificationGameWidget)
 		{
 			if (Key == EKeys::A || Key == EKeys::Left ||
@@ -46,12 +40,6 @@ bool UTerminalMiniGameHost::RouteKey(const FKey& Key)
 
 	if (CurrentInputMode == ETerminalInputMode::CalibrationGame)
 	{
-		if (Key == EKeys::Tab)
-		{
-			ExitCalibrationGame();
-			return true;
-		}
-
 		if (CalibrationWidget && Key == EKeys::Enter)
 		{
 			CalibrationWidget->HandleKey(Key);

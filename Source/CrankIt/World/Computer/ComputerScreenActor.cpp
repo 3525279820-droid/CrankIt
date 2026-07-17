@@ -164,6 +164,9 @@ void AComputerScreenActor::Tick(float DeltaTime)
 
 			if (PC)
 			{
+				// 关闭 A/D 等探索映射，避免与终端 / 小游戏按键冲突
+				APlayerCamera::SetExplorationMappingContextEnabled(PC, false);
+
 				FInputModeGameAndUI InputMode;
 				InputMode.SetWidgetToFocus(TerminalWidget->TakeWidget());
 				InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
@@ -182,6 +185,7 @@ void AComputerScreenActor::Tick(float DeltaTime)
 
 			if (PC)
 			{
+				APlayerCamera::SetExplorationMappingContextEnabled(PC, true);
 				// 与 APlayerCamera::BeginPlay 一致：探索阶段用 GameAndUI（无 Widget 焦点）+ 视口焦点，避免左键再次被吞。
 				APlayerCamera::ApplyExplorationInputMode(PC);
 			}

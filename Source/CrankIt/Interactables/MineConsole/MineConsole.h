@@ -93,6 +93,12 @@ public:
 	// 方向 3 下首次触发 LightTrigger 时播放 EMP 教程字幕轨
 	void TryShowLightTutorialSubtitle();
 
+	// TutorialNotSkipped_GordonIntro 播完后由 IntroFlow 调用，此后才允许 ChargeTutorial 字幕
+	void NotifyGordonIntroFinished();
+
+	// PrepareLevel 后由 IntroFlow 调用，教程阶段结束，不再播放 ChargeTutorial 字幕
+	void NotifyLevelPrepared();
+
 	// 触发 EMP 教程所需的玩家朝向索引（Directions 中 West）
 	static constexpr int32 EMPTutorialDirectionIndex = 3;
 
@@ -105,6 +111,12 @@ protected:
 	// 玩家在 SkipTutorial 中选 Yes 后为 true；C++ 外部请用 SetTutorialSkipped / IsTutorialSkipped
 	UPROPERTY(BlueprintReadOnly, Category = "Tutorial")
 	bool bSkipedTutorial = false;
+
+	// 未跳过教程时，Gordon 介绍字幕播完后为 true
+	bool bGordonIntroFinished = false;
+
+	// IntroFlow::PrepareLevel 后为 true，教程阶段结束
+	bool bLevelPrepared = false;
 
 private:
 	/** 游戏中点亮/熄灭；编辑器里始终可见以便调位 */
